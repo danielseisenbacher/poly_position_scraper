@@ -1,0 +1,65 @@
+name: PositionScraper
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        prefix: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install gql requests
+
+      - name: Run Scraper
+        run: python main.py ${{ matrix.prefix }}
+
+      - name: Upload Partial Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: users-${{ matrix.prefix }}
+          path: users_${{ matrix.prefix }}.txt
+          retention-days: 1
+
+  merge:
+    needs: scrape 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_results
+          pattern: users-*
+          merge-multiple: true
+
+      - name: Combine and Timestamp Results
+        run: |
+          # Generate timestamp in format YYYYMMDD_HHMMSS
+          TS=$(date +'%Y%m%d_%H%M%S')
+          FILENAME="unique_users_${TS}.txt"
+          
+          # Combine all partial files and remove duplicates just in case
+          cat all_results/users_*.txt | sort | uniq > "$FILENAME"
+          
+          echo "TIMESTAMP_FILENAME=$FILENAME" >> $GITHUB_ENV
+          echo "Final count of users:"
+          wc -l "$FILENAME"
+
+      - name: Upload Final Combined List
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-combined-users
+          # Uses the filename generated in the step above
+          path: ${{ env.TIMESTAMP_FILENAME }}
