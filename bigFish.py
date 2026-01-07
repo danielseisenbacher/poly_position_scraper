@@ -57,6 +57,8 @@ def get_big_fish(runner_index: int) -> list[str]:
 def get_recent_big_fish(big_fish: list[str], runner_index: int) -> None:
     if len(big_fish) == 0:
         print("No big fish for analysis found")
+        with open("recent_big_fish.txt", "w") as f:
+            f.write("\n")
         return
 
     two_months_ago = datetime.now() - timedelta(days=60)
@@ -101,7 +103,9 @@ def get_recent_big_fish(big_fish: list[str], runner_index: int) -> None:
         except Exception as e:
             print(f"Failed to fetch data for {user}: {str(e)}")
 
-
+    with open("recent_big_fish.txt", "w") as f:
+        for big_fish in recent_big_fish:
+            f.write(big_fish + "\n")
     return
 
 
