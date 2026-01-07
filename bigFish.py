@@ -6,13 +6,31 @@ from datetime import datetime, timedelta
 
 def get_big_fish(runner_index: int) -> list[str]:
     print("Running: ", runner_index)
-    unique_users=[]
+
+    # Load all unique users
+    all_unique_users = set()
     with open("unique_users.txt", "r") as f:
         for line in f:
             clean_line = line.strip()
             if len(clean_line) == 42:
-                unique_users.append(clean_line)
-    print(f"Unique users: {len(unique_users)}")
+                all_unique_users.add(clean_line)  # Add directly to set
+    print(f"All unique users: {len(all_unique_users)}")
+
+    # Load already analyzed users
+    already_analysed_set = set()
+    with open("users_already_seen.txt", "r") as f:
+        for line in f:
+            clean_line = line.strip()
+            already_analysed_set.add(clean_line)  # Add directly to set
+
+    # Get new users using set difference (faster)
+    unique_users = list(all_unique_users - already_analysed_set)
+    print(f"New users to analyze: {len(unique_users)}")
+
+    # Write all_unique_users to a file
+    with open(f"users_already_seen_{runner_index}.txt", "w") as f:
+        for elem in all_unique_users:
+            f.write(elem + "\n")
 
     workload_per_runner = floor(len(unique_users)/18)
     if runner_index < 18:
