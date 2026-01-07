@@ -79,6 +79,12 @@ jobs:
         with:
           name: unique-users-list
           path: .
+      - name: Download Previous Already Seen Users
+        uses: actions/download-artifact@v4
+        continue-on-error: true  # Won't exist on first run
+        with:
+          name: already-seen-users
+          path: .
       - name: Run Big Fish Scraper
         run: python bigFish.py ${{ matrix.prefix }}
       - name: Upload Big Fish Results
@@ -87,6 +93,52 @@ jobs:
           name: big-fish-${{ matrix.prefix }}
           path: big_fish_${{ matrix.prefix }}.txt
           retention-days: 1
+      - name: Upload Already Seen Users
+        uses: actions/upload-artifact@v4
+        with:
+          name: already-seen-${{ matrix.prefix }}
+          path: users_already_seen_${{ matrix.prefix }}.txt
+          retention-days: 1
+  
+  merge-already-seen:
+    needs: scrape-big-fish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Download All Already Seen Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: already_seen_results
+          pattern: already-seen-*
+          merge-multiple: true
+      - name: Merge Already Seen Users
+        run: |
+          python << 'EOF'
+          all_unique_users = []
+
+          with open("already_seen_results/users_already_seen_0.txt", "r") as f:
+              for line in f:
+                  clean_line = line.strip()
+                  if len(clean_line) == 42:
+                      all_unique_users.append(clean_line)
+
+          with open("users_already_seen.txt", "w") as f:
+              for user in all_unique_users:
+                  f.write(user + "\n")
+          
+          print(f"Total already seen users: {len(all_unique_users)}")
+          EOF
+      - name: Upload Combined Already Seen List
+        uses: actions/upload-artifact@v4
+        with:
+          name: already-seen-users
+          path: users_already_seen.txt
+          retention-days: 7
   
   merge-big-fish:
     needs: scrape-big-fish
