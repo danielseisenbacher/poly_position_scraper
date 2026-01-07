@@ -87,3 +87,37 @@ jobs:
         with:
           name: latest-unique-users
           path: data/unique_users_*.txt
+  
+  scrape-big-fish:
+    needs: merge
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        prefix: ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "gql[all]" requests
+
+      - name: Run Scraper
+        run: python bigFish.py ${{ matrix.prefix }}
+
+      - name: Upload Partial Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: users-${{ matrix.prefix }}
+          path: users_${{ matrix.prefix }}.txt
+          retention-days: 1
+    
