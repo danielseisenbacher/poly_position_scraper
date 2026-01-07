@@ -55,21 +55,28 @@ jobs:
           pattern: users-*
           merge-multiple: true
 
-      - name: Combine Results
+      - name: Combine Results with Timestamp
         run: |
-          cat all_results/users_*.txt | sort | uniq > unique_users.txt
-          echo "Final count:"
-          wc -l unique_users.txt
+          mkdir -p data
+          TS=$(date +'%Y%m%d_%H%M%S')
+          OUTFILE="data/unique_users_${TS}.txt"
 
-      - name: Commit updated user list
+          cat all_results/users_*.txt | sort | uniq > "$OUTFILE"
+
+          echo "$OUTFILE" > data/latest.txt
+
+          echo "Final file: $OUTFILE"
+          wc -l "$OUTFILE"
+
+      - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add unique_users.txt
+          git add data/
 
           if ! git diff --cached --quiet; then
-            git commit -m "Update unique users list"
+            git commit -m "Update users list ($(date +'%Y-%m-%d %H:%M:%S'))"
             git push
           else
             echo "No changes to commit"
@@ -79,4 +86,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: latest-unique-users
-          path: unique_users.txt
+          path: data/unique_users_*.txt
