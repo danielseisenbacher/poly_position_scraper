@@ -1,7 +1,12 @@
 name: PositionScraper
 
+permissions:
+  contents: write
+
 on:
-  workflow_dispatch: 
+  schedule:
+    - cron: '0 * * * *'  # every hour
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -21,7 +26,9 @@ jobs:
           python-version: '3.10'
 
       - name: Install Dependencies
-        run: pip install gql requests
+        run: |
+          python -m pip install --upgrade pip
+          pip install "gql[all]" requests
 
       - name: Run Scraper
         run: python main.py ${{ matrix.prefix }}
@@ -34,9 +41,13 @@ jobs:
           retention-days: 1
 
   merge:
-    needs: scrape 
+    needs: scrape
     runs-on: ubuntu-latest
+
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -44,22 +55,69 @@ jobs:
           pattern: users-*
           merge-multiple: true
 
-      - name: Combine and Timestamp Results
+      - name: Combine Results with Timestamp
         run: |
-          # Generate timestamp in format YYYYMMDD_HHMMSS
+          mkdir -p data
           TS=$(date +'%Y%m%d_%H%M%S')
-          FILENAME="unique_users_${TS}.txt"
-          
-          # Combine all partial files and remove duplicates just in case
-          cat all_results/users_*.txt | sort | uniq > "$FILENAME"
-          
-          echo "TIMESTAMP_FILENAME=$FILENAME" >> $GITHUB_ENV
-          echo "Final count of users:"
-          wc -l "$FILENAME"
+          OUTFILE="data/unique_users_${TS}.txt"
+
+          cat all_results/users_*.txt | sort | uniq > "$OUTFILE"
+
+          echo "$OUTFILE" > data/latest.txt
+
+          echo "Final file: $OUTFILE"
+          wc -l "$OUTFILE"
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add data/
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Update users list ($(date +'%Y-%m-%d %H:%M:%S'))"
+            git push
+          else
+            echo "No changes to commit"
+          fi
 
       - name: Upload Final Combined List
         uses: actions/upload-artifact@v4
         with:
-          name: final-combined-users
-          # Uses the filename generated in the step above
-          path: ${{ env.TIMESTAMP_FILENAME }}
+          name: latest-unique-users
+          path: data/unique_users_*.txt
+  
+  scrape-big-fish:
+    needs: merge
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        prefix: ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "gql[all]" requests
+
+      - name: Run Scraper
+        run: python bigFish.py ${{ matrix.prefix }}
+
+      - name: Upload Partial Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: users-${{ matrix.prefix }}
+          path: users_${{ matrix.prefix }}.txt
+          retention-days: 1
+    
