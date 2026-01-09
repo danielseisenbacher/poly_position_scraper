@@ -36,6 +36,7 @@ for count, user in enumerate(recent_big_fish, start=1):
                 continue
 
             insider_candidates.append(user)
+            print(f"Potential Insider Found: {user}", flush=True)
 
         else:
             print(f"User: {user} | Error: {response.status_code}")
