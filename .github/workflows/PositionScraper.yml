@@ -255,7 +255,7 @@ jobs:
             Found **${count}** potential insider(s) in this run.
             
             ### Candidates:
-            ${insiders.map(addr => `- \`${addr}\``).join('\n')}
+            ${insiders.map(addr => `- [\`${addr}\`](https://polymarket.com/${addr})`).join('\n')}
             
             ### Next Steps:
             1. Review positions at https://polymarket.com/profile/[address]
