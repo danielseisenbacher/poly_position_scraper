@@ -7,13 +7,13 @@ with open("recent_big_fish.txt", "r") as f:
         if len(clean_line) == 42:
             recent_big_fish.append(clean_line)
 
-print("Count of recent fish: ", recent_big_fish)
+print(f"Count of recent fish: {len(recent_big_fish)}", flush=True)
 
 insider_candidates = []
 for count, user in enumerate(recent_big_fish, start=1):
 
     if count % 100 == 0:
-        print(f"Interation {count}")
+        print(f"Iteration {count}", flush=True)
 
     try:
         response = requests.get(
@@ -32,7 +32,7 @@ for count, user in enumerate(recent_big_fish, start=1):
                 if position["percentPnl"] <= -99:
                     continue
 
-            if risk_sum/len(data) > 0.3:
+            if len(data) == 0 or risk_sum / len(data) > 0.3:
                 continue
 
             insider_candidates.append(user)
