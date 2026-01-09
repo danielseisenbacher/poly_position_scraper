@@ -12,6 +12,9 @@ print("Count of recent fish: ", recent_big_fish)
 insider_candidates = []
 for count, user in enumerate(recent_big_fish, start=1):
 
+    if count % 100 == 0:
+        print(f"Interation {count}")
+
     try:
         response = requests.get(
             "https://data-api.polymarket.com/positions",

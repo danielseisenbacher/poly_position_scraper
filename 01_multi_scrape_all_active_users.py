@@ -18,7 +18,12 @@ seen = 1
 
 print(f"Starting scraper for prefix: {search_prefix}")
 
+count = 0
 while True:
+    count += 1
+    if count % 100:
+        print(f"Iteration {count}")
+
     # 2. Use the dynamic prefix in the where clause
     where_clause = f'where: {{ id_starts_with: "{search_prefix}"'
     if last_id:
