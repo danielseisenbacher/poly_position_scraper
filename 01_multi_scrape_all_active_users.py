@@ -21,7 +21,7 @@ print(f"Starting scraper for prefix: {search_prefix}")
 count = 0
 while True:
     count += 1
-    if count % 100:
+    if count % 100 == 0:
         print(f"Iteration {count}")
 
     # 2. Use the dynamic prefix in the where clause

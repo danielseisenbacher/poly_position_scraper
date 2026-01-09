@@ -23,7 +23,7 @@ else:
 
 # Get new users using set difference (faster)
 new_users = list(all_users - already_analysed_set)
-print("FOUND {len(new_users)} NEW USERS SINCE LAST RUN")
+print(f"FOUND {len(new_users)} NEW USERS SINCE LAST RUN")
 
 # Write all_users to users_already_seen.txt to save for the next time
 with open(f"users_already_seen.txt", "w") as f:
