@@ -20,7 +20,7 @@ def get_big_fish(runner_index: int) -> None:
         start_idx = workload_per_runner * runner_index
         end_idx = (
             workload_per_runner * (runner_index + 1)
-            if runner_index < 17
+            if runner_index < 19
             else len(new_users)
         )
         print(f"Start index: {start_idx}, End index: {end_idx}")
