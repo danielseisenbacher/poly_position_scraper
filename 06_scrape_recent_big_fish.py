@@ -17,10 +17,9 @@ def get_recent_big_fish() -> None:
     recent_big_fish = []
     for count, user in enumerate(new_big_fish, start=1):
         if count % 100 == 0:
-            print("Current Count: ", count)
+            print("Current Count: ", count, flush=True)
 
         try:
-            print(user)
             response = requests.get(
                 "https://gamma-api.polymarket.com/public-profile",
                 params={'address': user},
@@ -30,7 +29,7 @@ def get_recent_big_fish() -> None:
             if response.status_code == 200:
                 data = response.json()
                 created_at_date = data["createdAt"]
-                created_at_date = datetime.fromisoformat(created_at_date.replace("Z", "+00:00"))
+                created_at_date = datetime.fromisoformat(created_at_date.replace("Z", ""))
 
                 if created_at_date > two_months_ago:
                     recent_big_fish.append(user)
