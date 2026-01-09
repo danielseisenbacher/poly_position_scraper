@@ -3,7 +3,7 @@ permissions:
   contents: write
 on:
   schedule:
-    - cron: '0 0,3,6,9,12,15,18,21 * * *'  # every hour
+    - cron: '0 0,3,6,9,12,15,18,21 * * *'  # every 3 hours
   workflow_dispatch:
 jobs:
   scrape:
@@ -79,14 +79,72 @@ jobs:
         with:
           name: unique-users-list
           path: .
+      - name: Download Previous Already Seen Users
+        uses: actions/download-artifact@v4
+        continue-on-error: true  # Won't exist on first run
+        with:
+          name: already-seen-users
+          path: .
+      - name: Create Empty File if Not Exists
+        run: |
+          if [ ! -f users_already_seen.txt ]; then
+            touch users_already_seen.txt
+            echo "Created empty users_already_seen.txt for first run"
+          fi
       - name: Run Big Fish Scraper
         run: python bigFish.py ${{ matrix.prefix }}
       - name: Upload Big Fish Results
         uses: actions/upload-artifact@v4
         with:
           name: big-fish-${{ matrix.prefix }}
-          path: big_fish_${{ matrix.prefix }}.txt
+          path: recent_big_fish.txt
           retention-days: 1
+      - name: Upload Already Seen Users
+        uses: actions/upload-artifact@v4
+        with:
+          name: already-seen-${{ matrix.prefix }}
+          path: users_already_seen_${{ matrix.prefix }}.txt
+          retention-days: 1
+  
+  merge-already-seen:
+    needs: scrape-big-fish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Download All Already Seen Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: already_seen_results
+          pattern: already-seen-*
+          merge-multiple: true
+      - name: Merge Already Seen Users
+        run: |
+          python << 'EOF'
+          all_unique_users = []
+
+          with open("already_seen_results/users_already_seen_0.txt", "r") as f:
+              for line in f:
+                  clean_line = line.strip()
+                  if len(clean_line) == 42:
+                      all_unique_users.append(clean_line)
+
+          with open("users_already_seen.txt", "w") as f:
+              for user in all_unique_users:
+                  f.write(user + "\n")
+          
+          print(f"Total already seen users: {len(all_unique_users)}")
+          EOF
+      - name: Upload Combined Already Seen List
+        uses: actions/upload-artifact@v4
+        with:
+          name: already-seen-users
+          path: users_already_seen.txt
+          retention-days: 7
   
   merge-big-fish:
     needs: scrape-big-fish
@@ -102,12 +160,85 @@ jobs:
           merge-multiple: true
       - name: Combine Big Fish Results
         run: |
-          cat big_fish_results/big_fish_*.txt | sort | uniq > combined_big_fish.txt
+          cat big_fish_results/recent_big_fish.txt | sort | uniq > recent_big_fish.txt
           echo "Combined big fish file created"
-          wc -l combined_big_fish.txt
+          wc -l recent_big_fish.txt
       - name: Upload Combined Big Fish List
         uses: actions/upload-artifact@v4
         with:
           name: combined-big-fish-list
-          path: combined_big_fish.txt
+          path: recent_big_fish.txt
           retention-days: 7
+  
+  find-insiders:
+    needs: merge-big-fish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+      - name: Download Combined Big Fish List
+        uses: actions/download-artifact@v4
+        with:
+          name: combined-big-fish-list
+          path: .
+      - name: Run Insider Detection
+        run: python insider_detection.py
+      - name: Check for Insiders
+        id: check_insiders
+        run: |
+          if [ -f insider_candidates.txt ] && [ -s insider_candidates.txt ]; then
+            COUNT=$(wc -l < insider_candidates.txt)
+            echo "count=$COUNT" >> $GITHUB_OUTPUT
+            echo "has_insiders=true" >> $GITHUB_OUTPUT
+            echo "Found $COUNT insider candidates"
+          else
+            echo "has_insiders=false" >> $GITHUB_OUTPUT
+            echo "No insider candidates found"
+          fi
+      - name: Upload Insider Candidates
+        if: steps.check_insiders.outputs.has_insiders == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: insider-candidates
+          path: insider_candidates.txt
+          retention-days: 30
+      - name: Create Issue with Insiders
+        if: steps.check_insiders.outputs.has_insiders == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const insiders = fs.readFileSync('insider_candidates.txt', 'utf8').trim().split('\n');
+            const count = insiders.length;
+            
+            const body = `## 🎯 New Insider Candidates Detected
+            
+            Found **${count}** potential insider(s) in this run.
+            
+            ### Candidates:
+            ${insiders.map(addr => `- \`${addr}\``).join('\n')}
+            
+            ### Next Steps:
+            1. Review positions at https://polymarket.com/profile/[address]
+            2. Analyze trading patterns
+            3. Download full report from artifacts
+            
+            **Run Time:** ${new Date().toISOString()}
+            **Workflow:** ${{ github.workflow }}
+            **Run ID:** ${{ github.run_id }}`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 ${count} New Insider Candidate${count > 1 ? 's' : ''} - ${new Date().toISOString().split('T')[0]}`,
+              body: body,
+              labels: ['insider-alert', 'automated']
+            });
