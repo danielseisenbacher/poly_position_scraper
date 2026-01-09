@@ -80,8 +80,9 @@ jobs:
           name: unique-users-list
           path: .
       - name: Download Previous Already Seen Users
-        uses: actions/download-artifact@v4
+        id: download_seen
         continue-on-error: true  # Won't exist on first run
+        uses: actions/download-artifact@v4
         with:
           name: already-seen-users
           path: .
@@ -90,6 +91,8 @@ jobs:
           if [ ! -f users_already_seen.txt ]; then
             touch users_already_seen.txt
             echo "Created empty users_already_seen.txt for first run"
+          else
+            echo "users_already_seen.txt already exists"
           fi
       - name: Run Big Fish Scraper
         run: python bigFish.py ${{ matrix.prefix }}
@@ -190,7 +193,7 @@ jobs:
           name: combined-big-fish-list
           path: .
       - name: Run Insider Detection
-        run: python insider_detection.py
+        run: python potentialInsiders.py
       - name: Check for Insiders
         id: check_insiders
         run: |
