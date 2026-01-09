@@ -45,5 +45,9 @@ for count, user in enumerate(recent_big_fish, start=1):
         print(f"Failed to fetch data for {user}: {str(e)}")
 
 with open("insider_candidates.txt", "w") as f:
+    print("-"*50, flush=True)
+    print("Found potential Insiders", len(insider_candidates), flush=True)
+    print("-" * 50, flush=True)
+
     for row in insider_candidates:
         f.write(f"{row}\n")
