@@ -1,5 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
+from dateutil.parser import isoparse
+
 
 def get_recent_big_fish() -> None:
 
@@ -11,8 +13,7 @@ def get_recent_big_fish() -> None:
                 new_big_fish.add(clean_line)
 
     new_big_fish = list(new_big_fish)
-    two_months_ago = datetime.now() - timedelta(days=60)
-
+    two_months_ago = datetime.now(timezone.utc) - timedelta(days=60)
 
     recent_big_fish = []
     for count, user in enumerate(new_big_fish, start=1):
@@ -28,8 +29,7 @@ def get_recent_big_fish() -> None:
 
             if response.status_code == 200:
                 data = response.json()
-                created_at_date = data["createdAt"]
-                created_at_date = datetime.fromisoformat(created_at_date.replace("Z", ""))
+                created_at_date = isoparse(data["createdAt"])
 
                 if created_at_date > two_months_ago:
                     recent_big_fish.append(user)
