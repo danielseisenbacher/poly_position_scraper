@@ -1,6 +1,7 @@
 name: PositionScraper
 permissions:
   contents: write
+  issues: write
 on:
   schedule:
     - cron: '0 0,3,6,9,12,15,18,21 * * *'  # every 3 hours
