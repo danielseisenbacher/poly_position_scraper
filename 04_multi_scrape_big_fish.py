@@ -15,7 +15,7 @@ def get_big_fish(runner_index: int) -> None:
 
     new_users = list(new_users)
 
-    workload_per_runner = floor(len(new_users)/18)
+    workload_per_runner = floor(len(new_users)/20)
     if runner_index < 20:
         start_idx = workload_per_runner * runner_index
         end_idx = (
