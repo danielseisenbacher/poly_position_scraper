@@ -9,6 +9,7 @@ with open("recent_big_fish.txt", "r") as f:
 
 print(f"Count of recent fish: {len(recent_big_fish)}", flush=True)
 
+market_tracker = {}
 insider_candidates = []
 for count, user in enumerate(recent_big_fish, start=1):
 
@@ -26,13 +27,32 @@ for count, user in enumerate(recent_big_fish, start=1):
             data = response.json()
 
             risk_sum = 0
-            for position in data:
-                risk_sum += position["avgPrice"]
+            valid_positions = 0
 
+            for position in data:
                 if position["percentPnl"] <= -99:
                     continue
 
-            if len(data) == 0 or risk_sum / len(data) > 0.3:
+                valid_positions += 1
+                risk_sum += position["avgPrice"]
+
+                cid = position["conditionId"]
+                value = float(position["currentValue"])
+                avg_price = float(position["avgPrice"])
+
+                # Track market exposure globally
+                if cid not in market_tracker:
+                    market_tracker[cid] = {
+                        "count": 0,
+                        "total_value": 0.0,
+                        "users": []
+                    }
+
+                market_tracker[cid]["count"] += 1
+                market_tracker[cid]["total_value"] += value
+                market_tracker[cid]["users"].append(user)
+
+            if valid_positions == 0 or risk_sum / valid_positions > 0.3:
                 continue
 
             insider_candidates.append(user)
@@ -51,3 +71,19 @@ with open("insider_candidates.txt", "w") as f:
 
     for row in insider_candidates:
         f.write(f"{row}\n")
+
+
+with open("market_clusters.txt", "w") as f:
+    f.write("conditionId,count,total_value,users\n")
+
+    for cid, data in sorted(
+        market_tracker.items(),
+        key=lambda x: x[1]["total_value"],
+        reverse=True
+    ):
+        if data["count"] > 1 or data["total_value"] >= 2500:
+            f.write(
+                f"{cid},{data['count']},{round(data['total_value'],2)},"
+                f"{'|'.join(set(data['users']))}\n"
+            )
+
