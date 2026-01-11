@@ -224,15 +224,20 @@ jobs:
         with:
           name: recent-big-fish-list
           path: .
+
       - name: Analyze for Insider Candidates
         run: python 07_scrape_potential_insiders.py
         env:
           PYTHONUNBUFFERED: "1"
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Check for Insiders
         id: check_insiders
         run: |
-          if [ -f insider_candidates.txt ] && [ -s insider_candidates.txt ]; then
-            COUNT=$(wc -l < insider_candidates.txt)
+          if [ -f insider_candidates.json ] && [ "$(jq 'length' insider_candidates.json)" -gt 0 ]; then
+            COUNT=$(jq 'length' insider_candidates.json)
             echo "count=$COUNT" >> $GITHUB_OUTPUT
             echo "has_insiders=true" >> $GITHUB_OUTPUT
             echo "Found $COUNT insider candidates"
@@ -240,19 +245,23 @@ jobs:
             echo "has_insiders=false" >> $GITHUB_OUTPUT
             echo "No insider candidates found"
           fi
+
       - name: Upload Insider Candidates
         if: steps.check_insiders.outputs.has_insiders == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: insider-candidates
-          path: insider_candidates.txt
+          path: insider_candidates.json
           retention-days: 30
-      - name: Upload Market Clusters
+
+      - name: Upload Market Tracker
+        if: steps.check_insiders.outputs.has_insiders == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: market-clusters
-          path: market_clusters.txt
+          name: market-tracker
+          path: market_tracker.json
           retention-days: 30
+
 
       - name: Create Issue with Insiders
         if: steps.check_insiders.outputs.has_insiders == 'true'
@@ -260,41 +269,51 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-
-            const insiders = fs.readFileSync('insider_candidates.txt', 'utf8')
-              .trim()
-              .split('\n')
-              .filter(Boolean);
-
-            let clusters = "";
-            if (fs.existsSync("market_clusters.txt")) {
-              clusters = fs.readFileSync("market_clusters.txt", "utf8")
-                .split("\n")
-                .slice(1)
-                .filter(l => l.length > 0)
-                .map(l => {
-                  const [cid, count, value] = l.split(",");
-                  return `- **${cid}** → ${count} whales → $${value}`;
-                })
-                .join("\n");
-            }
-
-            const count = insiders.length;
-
+            
+            const insiders = JSON.parse(fs.readFileSync("insider_candidates.json", "utf8"));
+            const markets = JSON.parse(fs.readFileSync("market_tracker.json", "utf8"));
+            
+            // -------- Market clustering section --------
+            const clusters = Object.entries(markets)
+              .filter(([_, m]) => m.count >= 2)
+              .map(([cid, m]) => {
+                const whales = Object.entries(m.users)
+                  .map(([user, u]) => {
+                    return `- [${user}](https://polymarket.com/profile/${user}) | $${u.value.toFixed(2)} | risk ${(u.avg_price * 100).toFixed(1)}%`;
+                  })
+                  .join("\n");
+            
+                return `**${cid}** → ${m.count} whales → $${m.total_value.toFixed(2)}\n${whales}`;
+              })
+              .join("\n\n");
+            
+            // -------- Insider wallets section --------
+            const insiderSection = Object.entries(insiders)
+              .map(([user, data]) => {
+                const markets = data.markets.map(m => `\`${m}\``).join(", ");
+                return `**[${user}](https://polymarket.com/profile/${user})**
+            - Value: $${data.value.toFixed(2)}
+            - Mean risk: ${(data.meanRisk * 100).toFixed(1)}%
+            - Markets: ${markets}`;
+              })
+              .join("\n\n");
+            
+            const count = Object.keys(insiders).length;
+            
             const body = `## 🎯 New Insider Candidates Detected
-
+            
             Found **${count}** potential insider(s).
-
+            
             ### 🚨 Market Clustering
             ${clusters || "No significant clusters detected"}
-
+            
             ### 🧍 Insider Wallets
-            ${insiders.map(a => `- [\`${a}\`](https://polymarket.com/profile/${a})`).join("\n")}
+            ${insiderSection}
             
             **Run:** ${process.env.GITHUB_RUN_ID}
             **Time:** ${new Date().toISOString()}
             `;
-
+            
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -302,5 +321,6 @@ jobs:
               body,
               labels: ['insider-alert', 'automated']
             });
+     
 
             

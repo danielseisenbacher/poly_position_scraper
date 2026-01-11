@@ -1,6 +1,8 @@
 import requests
+import json
 
-recent_big_fish=[]
+# Load recent big fish
+recent_big_fish = []
 with open("recent_big_fish.txt", "r") as f:
     for line in f:
         clean_line = line.strip()
@@ -10,7 +12,8 @@ with open("recent_big_fish.txt", "r") as f:
 print(f"Count of recent fish: {len(recent_big_fish)}", flush=True)
 
 market_tracker = {}
-insider_candidates = []
+insider_candidates = {}
+
 for count, user in enumerate(recent_big_fish, start=1):
 
     if count % 100 == 0:
@@ -19,71 +22,78 @@ for count, user in enumerate(recent_big_fish, start=1):
     try:
         response = requests.get(
             "https://data-api.polymarket.com/positions",
-            params={'user': user},
+            params={"user": user},
             timeout=10
         )
 
-        if response.status_code == 200:
-            data = response.json()
+        if response.status_code != 200:
+            print(f"User: {user} | Error: {response.status_code}")
+            continue
 
-            risk_sum = 0
-            valid_positions = 0
+        data = response.json()
 
-            for position in data:
-                if position["percentPnl"] <= -99:
-                    continue
+        insider_value = 0.0
+        risk_sum = 0.0
+        valid_positions = 0
+        user_markets = set()
 
-                valid_positions += 1
-                risk_sum += position["avgPrice"]
-
-                cid = position["conditionId"]
-                value = float(position["currentValue"])
-                avg_price = float(position["avgPrice"])
-
-                # Track market exposure globally
-                if cid not in market_tracker:
-                    market_tracker[cid] = {
-                        "count": 0,
-                        "total_value": 0.0,
-                        "users": []
-                    }
-
-                market_tracker[cid]["count"] += 1
-                market_tracker[cid]["total_value"] += value
-                market_tracker[cid]["users"].append(user)
-
-            if valid_positions == 0 or risk_sum / valid_positions > 0.3:
+        for position in data:
+            # Ignore nuked / liquidated positions
+            if position.get("percentPnl", 0) <= -99:
                 continue
 
-            insider_candidates.append(user)
-            print(f"Potential Insider Found: {user}", flush=True)
+            cid = position["conditionId"]
+            value = float(position["currentValue"])
+            avg_price = float(position["avgPrice"])
 
-        else:
-            print(f"User: {user} | Error: {response.status_code}")
+            # Track user exposure
+            user_markets.add(cid)
+            insider_value += value
+            risk_sum += avg_price
+            valid_positions += 1
+
+            # Track market exposure
+            if cid not in market_tracker:
+                market_tracker[cid] = {
+                    "count": 0,
+                    "total_value": 0.0,
+                    "users": {}
+                }
+
+            # Count this whale only once per market
+            if user not in market_tracker[cid]["users"]:
+                market_tracker[cid]["count"] += 1
+
+            market_tracker[cid]["total_value"] += value
+            market_tracker[cid]["users"][user] = {
+                "value": value,
+                "avg_price": avg_price
+            }
+
+        # Skip empty wallets
+        if valid_positions == 0:
+            continue
+
+        mean_risk = risk_sum / valid_positions
+
+        # Skip gamblers
+        if mean_risk > 0.30:
+            continue
+
+        insider_candidates[user] = {
+            "markets": list(user_markets),
+            "value": insider_value,
+            "meanRisk": mean_risk
+        }
+
+        print(f"Potential Insider Found: {user}", flush=True)
 
     except Exception as e:
         print(f"Failed to fetch data for {user}: {str(e)}")
 
-with open("insider_candidates.txt", "w") as f:
-    print("-"*50, flush=True)
-    print("Found potential Insiders", len(insider_candidates), flush=True)
-    print("-" * 50, flush=True)
+# Write structured outputs for GitHub Actions
+with open("insider_candidates.json", "w") as f:
+    json.dump(insider_candidates, f, indent=2)
 
-    for row in insider_candidates:
-        f.write(f"{row}\n")
-
-
-with open("market_clusters.txt", "w") as f:
-    f.write("conditionId,count,total_value,users\n")
-
-    for cid, data in sorted(
-        market_tracker.items(),
-        key=lambda x: x[1]["total_value"],
-        reverse=True
-    ):
-        if data["count"] > 1 or data["total_value"] >= 2500:
-            f.write(
-                f"{cid},{data['count']},{round(data['total_value'],2)},"
-                f"{'|'.join(set(data['users']))}\n"
-            )
-
+with open("market_tracker.json", "w") as f:
+    json.dump(market_tracker, f, indent=2)
