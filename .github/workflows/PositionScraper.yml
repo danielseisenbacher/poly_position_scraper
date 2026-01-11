@@ -247,35 +247,60 @@ jobs:
           name: insider-candidates
           path: insider_candidates.txt
           retention-days: 30
+      - name: Upload Market Clusters
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-clusters
+          path: market_clusters.txt
+          retention-days: 30
+
       - name: Create Issue with Insiders
         if: steps.check_insiders.outputs.has_insiders == 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const insiders = fs.readFileSync('insider_candidates.txt', 'utf8').trim().split('\n');
+
+            const insiders = fs.readFileSync('insider_candidates.txt', 'utf8')
+              .trim()
+              .split('\n')
+              .filter(Boolean);
+
+            let clusters = "";
+            if (fs.existsSync("market_clusters.txt")) {
+              clusters = fs.readFileSync("market_clusters.txt", "utf8")
+                .split("\n")
+                .slice(1)
+                .filter(l => l.length > 0)
+                .map(l => {
+                  const [cid, count, value] = l.split(",");
+                  return `- **${cid}** → ${count} whales → $${value}`;
+                })
+                .join("\n");
+            }
+
             const count = insiders.length;
-            
+
             const body = `## 🎯 New Insider Candidates Detected
+
+            Found **${count}** potential insider(s).
+
+            ### 🚨 Market Clustering
+            ${clusters || "No significant clusters detected"}
+
+            ### 🧍 Insider Wallets
+            ${insiders.map(a => `- [\`${a}\`](https://polymarket.com/profile/${a})`).join("\n")}
             
-            Found **${count}** potential insider(s) in this run.
-            
-            ### Candidates:
-            ${insiders.map(addr => `- [\`${addr}\`](https://polymarket.com/${addr})`).join('\n')}
-            
-            ### Next Steps:
-            1. Review positions at https://polymarket.com/profile/[address]
-            2. Analyze trading patterns
-            3. Download full report from artifacts
-            
-            **Run Time:** ${new Date().toISOString()}
-            **Workflow:** ${{ github.workflow }}
-            **Run ID:** ${{ github.run_id }}`;
-            
+            **Run:** ${process.env.GITHUB_RUN_ID}
+            **Time:** ${new Date().toISOString()}
+            `;
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🚨 ${count} New Insider Candidate${count > 1 ? 's' : ''} - ${new Date().toISOString().split('T')[0]}`,
-              body: body,
+              title: `🚨 ${count} Insider Candidate${count > 1 ? 's' : ''} Detected`,
+              body,
               labels: ['insider-alert', 'automated']
             });
+
+            
