@@ -4,7 +4,7 @@ permissions:
   issues: write
 on:
   schedule:
-    - cron: '0 0,3,6,9,12,15,18,21 * * *'  # every 3 hours
+    - cron: '0 0,4,8,12,16,20 * * *'  # every 4 hours
   workflow_dispatch:
 
 jobs:
@@ -72,38 +72,43 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+  
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+  
       - name: Download All Users List
         uses: actions/download-artifact@v4
         with:
           name: all-users-list
           path: .
-      - name: Download Previous Already Seen Users
-        id: download_seen
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: already-seen-users
-          path: .
+  
       - name: Filter New Users
         run: python 03_ignore_already_seen_users.py
         env:
           PYTHONUNBUFFERED: "1"
+  
       - name: Upload New Users List
         uses: actions/upload-artifact@v4
         with:
           name: new-users-list
           path: new_users.txt
           retention-days: 1
-      - name: Upload Updated Already Seen List
-        uses: actions/upload-artifact@v4
-        with:
-          name: already-seen-users
-          path: users_already_seen.txt
-          retention-days: 7
+  
+      - name: Commit updated users_already_seen.txt
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+  
+          git add users_already_seen.txt
+  
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update users_already_seen.txt"
+            git push
+          fi
 
   # Stage 4: Scrape big fish in parallel
   scrape-big-fish:
