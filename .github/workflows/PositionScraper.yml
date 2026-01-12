@@ -279,7 +279,7 @@ jobs:
               .map(([cid, m]) => {
                 const whales = Object.entries(m.users)
                   .map(([user, u]) => {
-                    return `- [${user}](https://polymarket.com/profile/${user}) | $${u.value.toFixed(2)} | risk ${(u.avg_price * 100).toFixed(1)}%`;
+                    return `- [${user}](https://polymarket.com/profile/${user}) | $${u.value.toFixed(2)} | risk ${(u.avg_price * 100).toFixed(1)}¢`;
                   })
                   .join("\n");
             
@@ -293,7 +293,7 @@ jobs:
                 const markets = data.markets.map(m => `\`${m}\``).join(", ");
                 return `**[${user}](https://polymarket.com/profile/${user})**
             - Value: $${data.value.toFixed(2)}
-            - Mean risk: ${(data.meanRisk * 100).toFixed(1)}%
+            - Mean risk: ${(data.meanRisk * 100).toFixed(1)}¢
             - Markets: ${markets}`;
               })
               .join("\n\n");
