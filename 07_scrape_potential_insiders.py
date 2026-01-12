@@ -42,30 +42,30 @@ for count, user in enumerate(recent_big_fish, start=1):
             if position.get("percentPnl", 0) <= -99:
                 continue
 
-            cid = position["conditionId"]
             value = float(position["currentValue"])
             avg_price = float(position["avgPrice"])
+            market_question = position["title"]
 
             # Track user exposure
-            user_markets.add(cid)
+            user_markets.add(market_question)
             insider_value += value
             risk_sum += avg_price
             valid_positions += 1
 
             # Track market exposure
-            if cid not in market_tracker:
-                market_tracker[cid] = {
+            if market_question not in market_tracker:
+                market_tracker[market_question] = {
                     "count": 0,
                     "total_value": 0.0,
                     "users": {}
                 }
 
             # Count this whale only once per market
-            if user not in market_tracker[cid]["users"]:
-                market_tracker[cid]["count"] += 1
+            if user not in market_tracker[market_question]["users"]:
+                market_tracker[market_question]["count"] += 1
 
-            market_tracker[cid]["total_value"] += value
-            market_tracker[cid]["users"][user] = {
+            market_tracker[market_question]["total_value"] += value
+            market_tracker[market_question]["users"][user] = {
                 "value": value,
                 "avg_price": avg_price
             }
