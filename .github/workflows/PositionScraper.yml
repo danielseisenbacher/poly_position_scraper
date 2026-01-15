@@ -275,15 +275,24 @@ jobs:
             
             // -------- Market clustering section --------
             const clusters = Object.entries(markets)
-              .filter(([_, m]) => m.count >= 2)
+              .filter(([_, m]) => {
+                const highRiskWhales = Object.values(m.users).filter(u => u.avg_price > 0.35);
+                return highRiskWhales.length >= 2;
+              })
               .map(([cid, m]) => {
                 const whales = Object.entries(m.users)
+                  .filter(([_, u]) => u.avg_price > 0.35)
                   .map(([user, u]) => {
                     return `- [${user}](https://polymarket.com/profile/${user}) | $${u.value.toFixed(2)} | risk ${(u.avg_price * 100).toFixed(1)}¢`;
                   })
                   .join("\n");
-            
-                return `**${cid}** → ${m.count} whales → $${m.total_value.toFixed(2)}\n${whales}`;
+                
+                const highRiskCount = Object.values(m.users).filter(u => u.avg_price > 0.35).length;
+                const highRiskTotal = Object.values(m.users)
+                  .filter(u => u.avg_price > 0.35)
+                  .reduce((sum, u) => sum + u.value, 0);
+                
+                return `**${cid}** → ${highRiskCount} whales → $${highRiskTotal.toFixed(2)}\n${whales}`;
               })
               .join("\n\n");
             
