@@ -289,7 +289,7 @@ jobs:
                 
                 const highRiskCount = Object.values(m.users).filter(u => u.avg_price > 0.35).length;
                 const highRiskTotal = Object.values(m.users)
-                  .filter(u => u.avg_price > 0.35)
+                  .filter(u => u.avg_price < 0.35)
                   .reduce((sum, u) => sum + u.value, 0);
                 
                 return `**${cid}** → ${highRiskCount} whales → $${highRiskTotal.toFixed(2)}\n${whales}`;
