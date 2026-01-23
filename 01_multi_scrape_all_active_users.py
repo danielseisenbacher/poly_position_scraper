@@ -10,7 +10,7 @@ search_prefix = f"0x{prefix_char}"
 output_filename = f"users_{prefix_char}.txt"
 
 QUERY_URL = "https://api.goldsky.com/api/public/project_cl6mb8i9h0003e201j6li0diw/subgraphs/positions-subgraph/0.0.7/gn"
-MAX_RETRIES = 10
+MAX_RETRIES = 15
 last_id = ""
 unique_users = []
 user_seen = ""
@@ -50,7 +50,7 @@ while True:
             res = client.execute(query)
             break
         except Exception as e:
-            wait_time = min(60, 2 ** attempt)
+            wait_time = min(120, 2 ** attempt)
             time.sleep(wait_time)
             if attempt == MAX_RETRIES - 1: raise e
 
