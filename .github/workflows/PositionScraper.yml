@@ -262,7 +262,6 @@ jobs:
           path: market_tracker.json
           retention-days: 30
 
-
       - name: Create Issue with Insiders
         if: steps.check_insiders.outputs.has_insiders == 'true'
         uses: actions/github-script@v7
@@ -271,30 +270,6 @@ jobs:
             const fs = require('fs');
             
             const insiders = JSON.parse(fs.readFileSync("insider_candidates.json", "utf8"));
-            const markets = JSON.parse(fs.readFileSync("market_tracker.json", "utf8"));
-            
-            // -------- Market clustering section --------
-            const clusters = Object.entries(markets)
-              .filter(([_, m]) => {
-                const highRiskWhales = Object.values(m.users).filter(u => u.avg_price > 0.35);
-                return highRiskWhales.length >= 2;
-              })
-              .map(([cid, m]) => {
-                const whales = Object.entries(m.users)
-                  .filter(([_, u]) => u.avg_price > 0.35)
-                  .map(([user, u]) => {
-                    return `- [${user}](https://polymarket.com/profile/${user}) | $${u.value.toFixed(2)} | risk ${(u.avg_price * 100).toFixed(1)}¢`;
-                  })
-                  .join("\n");
-                
-                const highRiskCount = Object.values(m.users).filter(u => u.avg_price > 0.35).length;
-                const highRiskTotal = Object.values(m.users)
-                  .filter(u => u.avg_price < 0.35)
-                  .reduce((sum, u) => sum + u.value, 0);
-                
-                return `**${cid}** → ${highRiskCount} whales → $${highRiskTotal.toFixed(2)}\n${whales}`;
-              })
-              .join("\n\n");
             
             // -------- Insider wallets section --------
             const insiderSection = Object.entries(insiders)
@@ -313,9 +288,6 @@ jobs:
             
             Found **${count}** potential insider(s).
             
-            ### 🚨 Market Clustering
-            ${clusters || "No significant clusters detected"}
-            
             ### 🧍 Insider Wallets
             ${insiderSection}
             
@@ -330,6 +302,3 @@ jobs:
               body,
               labels: ['insider-alert', 'automated']
             });
-     
-
-            
