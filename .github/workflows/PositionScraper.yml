@@ -15,6 +15,8 @@ jobs:
       matrix:
         prefix: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
       fail-fast: false
+    continue-on-error: true
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -31,10 +33,94 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
       - name: Upload Partial Results
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: users-${{ matrix.prefix }}
           path: users_${{ matrix.prefix }}.txt
+          retention-days: 1
+      - name: Mark Failed Prefix
+        if: failure()
+        run: |
+          mkdir -p failed_prefix
+          echo "${{ matrix.prefix }}" > failed_prefix/prefix.txt
+      - name: Upload Failed Prefix Marker
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-prefix-${{ matrix.prefix }}
+          path: failed_prefix/prefix.txt
+          retention-days: 1
+
+  repair-failed-prefixes:
+    needs: scrape-active-users
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "gql[all]" requests
+
+      - name: Download Failed Prefix Markers
+        uses: actions/download-artifact@v4
+        with:
+          path: failed_markers
+          pattern: failed-prefix-*
+          merge-multiple: false
+        continue-on-error: true
+
+      - name: Repair Failed Prefixes Sequentially
+        shell: bash
+        run: |
+          mkdir -p repaired_outputs
+
+          if [ ! -d failed_markers ]; then
+            echo "No failed prefixes. Skipping repair."
+            exit 0
+          fi
+
+          FAILED_PREFIXES=$(find failed_markers -name prefix.txt | sort)
+
+          if [ -z "$FAILED_PREFIXES" ]; then
+            echo "No failed prefixes found. Skipping repair."
+            exit 0
+          fi
+
+          for marker in $FAILED_PREFIXES; do
+            PREFIX=$(cat "$marker")
+            echo "Repairing failed prefix: $PREFIX"
+
+            # run 16 sub-shards sequentially
+            for c in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+              SUBPREFIX="${PREFIX}${c}"
+              echo "Running subprefix $SUBPREFIX"
+              python 01_multi_scrape_all_active_users.py "$SUBPREFIX"
+            done
+
+            # merge users_${PREFIX}0.txt ... users_${PREFIX}f.txt into users_${PREFIX}.txt
+            cat users_${PREFIX}[0-9a-f].txt | sort -u > "users_${PREFIX}.txt"
+
+            # clean up temporary subfiles
+            rm -f users_${PREFIX}[0-9a-f].txt
+
+            # store repaired parent shard
+            mv "users_${PREFIX}.txt" repaired_outputs/
+          done
+
+      - name: Upload Repaired Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repaired-users
+          path: repaired_outputs/*
           retention-days: 1
 
   # Stage 2: Merge all active users into single list

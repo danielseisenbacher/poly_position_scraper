@@ -16,6 +16,9 @@ unique_users = []
 user_seen = ""
 seen = 1
 
+transport = RequestsHTTPTransport(url=QUERY_URL, verify=True, retries=5, timeout=30)
+client = Client(transport=transport)
+
 print(f"Starting scraper for prefix: {search_prefix}")
 
 count = 0
@@ -41,8 +44,7 @@ while True:
 
     # ... [Your existing GQL client/transport setup] ...
     query = gql(q_string)
-    transport = RequestsHTTPTransport(url=QUERY_URL, verify=True, retries=5, timeout=30)
-    client = Client(transport=transport)
+
 
     res = None
     for attempt in range(MAX_RETRIES):
