@@ -43,13 +43,14 @@ jobs:
         if: failure()
         run: |
           mkdir -p failed_prefix
-          echo "${{ matrix.prefix }}" > failed_prefix/prefix.txt
+          echo "${{ matrix.prefix }}" > failed_prefix/${{ matrix.prefix }}.txt
+
       - name: Upload Failed Prefix Marker
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: failed-prefix-${{ matrix.prefix }}
-          path: failed_prefix/prefix.txt
+          path: failed_prefix/${{ matrix.prefix }}.txt
           retention-days: 1
 
   repair-failed-prefixes:
@@ -87,45 +88,77 @@ jobs:
             exit 0
           fi
 
-          FAILED_PREFIXES=$(find failed_markers -name prefix.txt | sort)
+          FAILED_PREFIXES=$(find failed_markers -name "*.txt" | sort)
 
           if [ -z "$FAILED_PREFIXES" ]; then
             echo "No failed prefixes found. Skipping repair."
             exit 0
           fi
 
-          for marker in $FAILED_PREFIXES; do
-            PREFIX=$(cat "$marker")
-            echo "Repairing failed prefix: $PREFIX"
+          HEX=(0 1 2 3 4 5 6 7 8 9 a b c d e f)
+          MAX_DEPTH=4
 
-            # run 16 sub-shards sequentially
-            for c in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
-              SUBPREFIX="${PREFIX}${c}"
-              echo "Running subprefix $SUBPREFIX"
-              python 01_multi_scrape_all_active_users.py "$SUBPREFIX"
+          scrape_recursive() {
+            local PREFIX="$1"
+            local DEPTH="$2"
+
+            echo "Attempting prefix: $PREFIX (depth $DEPTH)"
+
+            if python 01_multi_scrape_all_active_users.py "$PREFIX"; then
+              echo "SUCCESS: $PREFIX"
+              return 0
+            fi
+
+            echo "FAILED: $PREFIX"
+
+            if [ "$DEPTH" -ge "$MAX_DEPTH" ]; then
+              echo "Reached MAX_DEPTH for $PREFIX, giving up."
+              return 1
+            fi
+
+            rm -f "users_${PREFIX}.txt"
+
+            local CHILD_FILES=()
+
+            for c in "${HEX[@]}"; do
+              CHILD="${PREFIX}${c}"
+              scrape_recursive "$CHILD" $((DEPTH + 1)) || return 1
+              CHILD_FILES+=("users_${CHILD}.txt")
             done
 
-            # merge users_${PREFIX}0.txt ... users_${PREFIX}f.txt into users_${PREFIX}.txt
-            cat users_${PREFIX}[0-9a-f].txt | sort -u > "users_${PREFIX}.txt"
+            cat "${CHILD_FILES[@]}" | sort -u > "users_${PREFIX}.txt"
+            rm -f "${CHILD_FILES[@]}"
 
-            # clean up temporary subfiles
-            rm -f users_${PREFIX}[0-9a-f].txt
+            echo "Merged children into users_${PREFIX}.txt"
+            return 0
+          }
 
-            # store repaired parent shard
+          for marker in $FAILED_PREFIXES; do
+            PREFIX=$(cat "$marker")
+            echo "Repairing failed top-level prefix: $PREFIX"
+
+            scrape_recursive "$PREFIX" 1
+
+            if [ ! -f "users_${PREFIX}.txt" ]; then
+              echo "Repair failed for $PREFIX"
+              exit 1
+            fi
+
             mv "users_${PREFIX}.txt" repaired_outputs/
           done
 
-      - name: Upload Repaired Results
-        if: always()
+      - name: Upload Repaired User Files
         uses: actions/upload-artifact@v4
         with:
-          name: repaired-users
-          path: repaired_outputs/*
+          name: users-repaired
+          path: repaired_outputs/*.txt
+          if-no-files-found: ignore
           retention-days: 1
+        if: always()
 
   # Stage 2: Merge all active users into single list
   merge-active-users:
-    needs: scrape-active-users
+    needs: repair-failed-prefixes
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
