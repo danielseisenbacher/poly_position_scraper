@@ -45,7 +45,6 @@ while True:
     # ... [Your existing GQL client/transport setup] ...
     query = gql(q_string)
 
-
     res = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -53,8 +52,14 @@ while True:
             break
         except Exception as e:
             wait_time = min(120, 2 ** attempt)
+            print(f"Query failed for {search_prefix} at last_id={last_id} (attempt {attempt + 1}/{MAX_RETRIES}): {e}",
+                  flush=True)
             time.sleep(wait_time)
-            if attempt == MAX_RETRIES - 1: raise e
+
+    if res is None:
+        print(f"Giving up on {search_prefix} at last_id={last_id}. Saving partial results.", flush=True)
+        break
+
 
     balances = res.get("userBalances", [])
 
