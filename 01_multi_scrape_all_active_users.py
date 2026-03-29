@@ -52,12 +52,14 @@ while True:
             break
         except Exception as e:
             wait_time = min(120, 2 ** attempt)
-            print(f"Query failed for {search_prefix} at last_id={last_id} (attempt {attempt + 1}/{MAX_RETRIES}): {e}",
-                  flush=True)
+            print(f"Error on attempt {attempt + 1}/{MAX_RETRIES}: {e}", flush=True)
             time.sleep(wait_time)
 
+            if attempt == MAX_RETRIES - 1:
+                print("Max retries reached. Saving partial results and stopping.", flush=True)
+                res = None
+
     if res is None:
-        print(f"Giving up on {search_prefix} at last_id={last_id}. Saving partial results.", flush=True)
         break
 
 

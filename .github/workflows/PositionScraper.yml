@@ -34,30 +34,16 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Upload Partial Results
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: users-${{ matrix.prefix }}
           path: users_${{ matrix.prefix }}.txt
           retention-days: 1
 
-      - name: Mark Failed Prefix
-        if: failure()
-        run: |
-          mkdir -p failed_prefix
-          echo "${{ matrix.prefix }}" > failed_prefix/${{ matrix.prefix }}.txt
-
-      - name: Upload Failed Prefix Marker
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: failed-prefix-${{ matrix.prefix }}
-          path: failed_prefix/${{ matrix.prefix }}.txt
-          retention-days: 1
-
   # Stage 2: Merge all active users into single list
   merge-active-users:
-    needs: repair-failed-prefixes
+    needs: scrape-active-users
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
