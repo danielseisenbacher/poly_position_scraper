@@ -32,6 +32,7 @@ jobs:
         run: python 01_multi_scrape_all_active_users.py ${{ matrix.prefix }}
         env:
           PYTHONUNBUFFERED: "1"
+
       - name: Upload Partial Results
         if: success()
         uses: actions/upload-artifact@v4
@@ -39,6 +40,7 @@ jobs:
           name: users-${{ matrix.prefix }}
           path: users_${{ matrix.prefix }}.txt
           retention-days: 1
+
       - name: Mark Failed Prefix
         if: failure()
         run: |
@@ -52,109 +54,6 @@ jobs:
           name: failed-prefix-${{ matrix.prefix }}
           path: failed_prefix/${{ matrix.prefix }}.txt
           retention-days: 1
-
-  repair-failed-prefixes:
-    needs: scrape-active-users
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install "gql[all]" requests
-
-      - name: Download Failed Prefix Markers
-        uses: actions/download-artifact@v4
-        with:
-          path: failed_markers
-          pattern: failed-prefix-*
-          merge-multiple: false
-        continue-on-error: true
-
-      - name: Repair Failed Prefixes Sequentially
-        shell: bash
-        run: |
-          mkdir -p repaired_outputs
-
-          if [ ! -d failed_markers ]; then
-            echo "No failed prefixes. Skipping repair."
-            exit 0
-          fi
-
-          FAILED_PREFIXES=$(find failed_markers -name "*.txt" | sort)
-
-          if [ -z "$FAILED_PREFIXES" ]; then
-            echo "No failed prefixes found. Skipping repair."
-            exit 0
-          fi
-
-          HEX=(0 1 2 3 4 5 6 7 8 9 a b c d e f)
-          MAX_DEPTH=4
-
-          scrape_recursive() {
-            local PREFIX="$1"
-            local DEPTH="$2"
-
-            echo "Attempting prefix: $PREFIX (depth $DEPTH)"
-
-            if python 01_multi_scrape_all_active_users.py "$PREFIX"; then
-              echo "SUCCESS: $PREFIX"
-              return 0
-            fi
-
-            echo "FAILED: $PREFIX"
-
-            if [ "$DEPTH" -ge "$MAX_DEPTH" ]; then
-              echo "Reached MAX_DEPTH for $PREFIX, giving up."
-              return 1
-            fi
-
-            rm -f "users_${PREFIX}.txt"
-
-            local CHILD_FILES=()
-
-            for c in "${HEX[@]}"; do
-              CHILD="${PREFIX}${c}"
-              scrape_recursive "$CHILD" $((DEPTH + 1)) || return 1
-              CHILD_FILES+=("users_${CHILD}.txt")
-            done
-
-            cat "${CHILD_FILES[@]}" | sort -u > "users_${PREFIX}.txt"
-            rm -f "${CHILD_FILES[@]}"
-
-            echo "Merged children into users_${PREFIX}.txt"
-            return 0
-          }
-
-          for marker in $FAILED_PREFIXES; do
-            PREFIX=$(cat "$marker")
-            echo "Repairing failed top-level prefix: $PREFIX"
-
-            scrape_recursive "$PREFIX" 1
-
-            if [ ! -f "users_${PREFIX}.txt" ]; then
-              echo "Repair failed for $PREFIX"
-              exit 1
-            fi
-
-            mv "users_${PREFIX}.txt" repaired_outputs/
-          done
-
-      - name: Upload Repaired User Files
-        uses: actions/upload-artifact@v4
-        with:
-          name: users-repaired
-          path: repaired_outputs/*.txt
-          if-no-files-found: ignore
-          retention-days: 1
-        if: always()
 
   # Stage 2: Merge all active users into single list
   merge-active-users:
