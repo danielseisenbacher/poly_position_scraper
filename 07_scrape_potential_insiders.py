@@ -1,5 +1,6 @@
 import requests
 import json
+import pickle
 
 # Load recent big fish
 recent_big_fish = []
@@ -97,3 +98,28 @@ with open("insider_candidates.json", "w") as f:
 
 with open("market_tracker.json", "w") as f:
     json.dump(market_tracker, f, indent=2)
+
+
+try:
+    # 1. Read existing newcomers from the text file
+    # 'a+' opens for reading and appending; it creates the file if it doesn't exist
+    newcomers = []
+    try:
+        with open("newcomers.txt", "r") as f:
+            # .strip() removes the newline characters while reading
+            newcomers = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        # If the file doesn't exist yet, we just start with an empty list
+        pass
+
+    # 2. Add the new insider candidates to our list
+    for insider, _ in insider_candidates.keys():
+        newcomers.append(insider)
+
+    # 3. Write the updated list back to the text file
+    with open("newcomers.txt", "w") as f:
+        for user in newcomers:
+            f.write(f"{user}\n")
+
+except Exception as e:
+    print(f"File Error: {e}")
