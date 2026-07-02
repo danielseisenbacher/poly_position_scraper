@@ -19,7 +19,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install Dependencies
@@ -47,7 +47,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Download All User Artifacts
@@ -74,30 +74,30 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-  
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-  
+
       - name: Download All Users List
         uses: actions/download-artifact@v4
         with:
           name: all-users-list
           path: .
-  
+
       - name: Filter New Users
         run: python 03_ignore_already_seen_users.py
         env:
           PYTHONUNBUFFERED: "1"
-  
+
       - name: Upload New Users List
         uses: actions/upload-artifact@v4
         with:
           name: new-users-list
           path: new_users.txt
           retention-days: 1
-  
+
       - name: Commit updated users_already_seen.txt
         run: |
           git config user.name "github-actions"
@@ -119,12 +119,12 @@ jobs:
     strategy:
       matrix:
         prefix: ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17", "18", "19"]
-      fail-fast: false
+    fail-fast: false
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install Dependencies
@@ -155,7 +155,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Download All Big Fish Artifacts
@@ -183,7 +183,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install Dependencies
@@ -214,7 +214,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       - name: Install Dependencies
