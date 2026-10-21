@@ -44,9 +44,12 @@ pub(crate) fn labeled_kinds(w: &Wallet) -> Vec<SignalKind> {
     set.into_iter().collect()
 }
 
-fn signals_by_strength(w: &Wallet) -> Vec<&Signal> {
+/// Signals by contribution to the score (weight × strength), so the evidence that
+/// drives the score comes before supporting context.
+fn signals_by_contribution<'w>(w: &'w Wallet, cfg: &Config) -> Vec<&'w Signal> {
+    let c = |s: &Signal| cfg.signals.weight(s.kind) * s.strength;
     let mut s: Vec<&Signal> = w.signals.iter().collect();
-    s.sort_by(|a, b| b.strength.total_cmp(&a.strength).then(a.kind.cmp(&b.kind)));
+    s.sort_by(|a, b| c(b).total_cmp(&c(a)).then(a.kind.cmp(&b.kind)));
     s
 }
 
@@ -58,8 +61,8 @@ fn tier_label(tier: Tier) -> Option<&'static str> {
     }
 }
 
-pub(crate) fn title(w: &Wallet) -> String {
-    let top: Vec<String> = signals_by_strength(w)
+pub(crate) fn title(w: &Wallet, cfg: &Config) -> String {
+    let top: Vec<String> = signals_by_contribution(w, cfg)
         .iter()
         .take(2)
         .map(|s| s.kind.to_string())
@@ -85,7 +88,7 @@ pub(crate) fn labels(w: &Wallet, cfg: &Config) -> Vec<String> {
 }
 
 pub(crate) fn issue(w: &Wallet, cfg: &Config) -> (String, String, Vec<String>) {
-    (title(w), body(w, cfg), labels(w, cfg))
+    (title(w, cfg), body(w, cfg), labels(w, cfg))
 }
 
 fn body(w: &Wallet, cfg: &Config) -> String {
@@ -136,7 +139,7 @@ fn body(w: &Wallet, cfg: &Config) -> String {
     out.push_str("\n\n");
 
     // Signals.
-    let sigs = signals_by_strength(w);
+    let sigs = signals_by_contribution(w, cfg);
     if !sigs.is_empty() {
         out.push_str("| signal | strength | evidence |\n|---|---|---|\n");
         for s in sigs {

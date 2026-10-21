@@ -509,7 +509,7 @@ async fn sync_opens_issue_and_links_wallet() {
         gh.writes(),
         vec![
             "list insider-candidate all".to_string(),
-            format!("create #1 {}", render::title(&hi))
+            format!("create #1 {}", render::title(&hi, &Config::default()))
         ]
     );
     assert_eq!(
@@ -567,7 +567,7 @@ async fn sync_rescore_comments_and_updates() {
         vec![(1, "Score 62 → 81; new signals: PreMove".to_string())]
     );
     let i = gh.issue(1);
-    assert_eq!(i.title, render::title(&w));
+    assert_eq!(i.title, render::title(&w, &Config::default()));
     assert!(i.labels.contains(&"sig:pre-move".to_string()));
     let rec = &st.alerts.wallets[&w.addr];
     assert_eq!(rec.last_score, 81);

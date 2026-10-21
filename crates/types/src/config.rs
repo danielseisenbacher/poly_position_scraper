@@ -5,6 +5,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::SignalKind;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Config {
@@ -283,6 +285,23 @@ pub struct SignalConfig {
 
     // LinkedAccounts
     pub linked_bonus_per_member: f64,
+}
+
+impl SignalConfig {
+    /// The weight of a signal kind in the score.
+    pub fn weight(&self, kind: SignalKind) -> f64 {
+        match kind {
+            SignalKind::NewAccountLongshot => self.w_new_account_longshot,
+            SignalKind::OldAccountWinRate => self.w_old_account_win_rate,
+            SignalKind::LeaderboardEntrant => self.w_leaderboard_entrant,
+            SignalKind::LongshotWinner => self.w_longshot_winner,
+            SignalKind::Concentration => self.w_concentration,
+            SignalKind::ResolutionTiming => self.w_resolution_timing,
+            SignalKind::PreMove => self.w_pre_move,
+            SignalKind::NicheMarket => self.w_niche_market,
+            SignalKind::LinkedAccounts => self.w_linked_accounts,
+        }
+    }
 }
 
 impl Default for SignalConfig {
