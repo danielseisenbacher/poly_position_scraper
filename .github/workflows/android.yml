@@ -1,0 +1,97 @@
+# Build the Android app in android/ and publish the signed APK to release `apk-latest`
+# (the repo's "Latest" release, so .../releases/latest/download/polywatch.apk is stable).
+# Signing key: repo secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Every build must use the same key, or
+# phones cannot update over the previous install.
+name: android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+    working-directory: android
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Unit tests
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Build signed release APK
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::secret ANDROID_KEYSTORE_BASE64 is not set; refusing to publish a debug-signed APK"
+            exit 1
+          fi
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+          base64 -d <<< "$KEYSTORE_B64" > "$ANDROID_KEYSTORE_PATH"
+          ./gradlew --no-daemon :app:assembleRelease
+          rm -f "$ANDROID_KEYSTORE_PATH"
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/polywatch.apk
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs dist/polywatch.apk | head -3
+          (cd dist && sha256sum polywatch.apk > polywatch.apk.sha256)
+
+      - name: Publish to release apk-latest
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          gh release view apk-latest -R "$repo" > /dev/null 2>&1 \
+            || gh release create apk-latest -R "$repo" --latest \
+                 --title "polywatch for Android" --notes "Built from main by android.yml"
+          gh release upload apk-latest -R "$repo" --clobber dist/polywatch.apk dist/polywatch.apk.sha256
+          gh release edit apk-latest -R "$repo" --latest --title "polywatch for Android ${VERSION_NAME}" \
+            --notes "$(cat <<EOF
+          Android app for the polywatch dashboard: candidates, live tape, stats, wallet/market/cluster views and GitHub Actions runs.
+
+          **Install:** download \`polywatch.apk\` on your phone and open it (allow installs from your browser when asked). Later versions install over it.
+
+          Version ${VERSION_NAME} (code ${VERSION_CODE}), built from ${GITHUB_SHA} (run ${GITHUB_RUN_ID}).
+          sha256 \`$(cut -d' ' -f1 dist/polywatch.apk.sha256)\`
+          EOF
+          )"
+          {
+            echo "### Published \`apk-latest\` ${VERSION_NAME}"
+            echo "commit \`${GITHUB_SHA::12}\`, $(du -h dist/polywatch.apk | cut -f1), sha256 \`$(cut -d' ' -f1 dist/polywatch.apk.sha256)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

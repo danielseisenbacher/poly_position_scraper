@@ -13,6 +13,7 @@ It then tracks the flagged wallets' trades every ~8 minutes.
 **Where to look**
 
 - Dashboard: https://danielseisenbacher.github.io/poly_position_scraper/
+- Android app: [`polywatch.apk`](https://github.com/danielseisenbacher/poly_position_scraper/releases/latest/download/polywatch.apk) — the dashboard for phones, plus the GitHub Actions runs (run/cancel/re-run with an optional token in Settings)
 - Notifications: issues labelled [`insider-candidate`](https://github.com/danielseisenbacher/poly_position_scraper/issues?q=label%3Ainsider-candidate). Each flagged wallet gets one issue, and new findings and big trades are added as comments on it.
 
 **How it runs** (GitHub Actions, one static Rust binary, public APIs only, no keys)
@@ -24,9 +25,10 @@ It then tracks the flagged wallets' trades every ~8 minutes.
 | `pages.yml` | on `site/` changes | deploys the dashboard (it reads its data from the `data` branch) |
 | `maintenance.yml` | weekly | prunes stale wallets, squashes the `data` branch |
 | `build.yml` | on code changes | tests, then publishes the binary to release `bin-latest` |
+| `android.yml` | on `android/` changes | tests, then publishes the signed APK to release `apk-latest` |
 
 **Layout:** `crates/` holds the Rust workspace (`cli` is the `polywatch` binary), `site/` the
-static dashboard, `fixtures/` the recorded API responses for tests, and `scripts/ci/` the
+static dashboard, `android/` the Android app (Kotlin, Jetpack Compose), `fixtures/` the recorded API responses for tests, and `scripts/ci/` the
 workflow helpers.
 
 **Run locally:** `cargo run -p polywatch -- discover --dry-run --data-dir /tmp/pw`
