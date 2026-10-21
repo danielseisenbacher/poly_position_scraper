@@ -76,7 +76,7 @@ impl MarketCache {
 }
 
 /// Release asset `evaluated.bin`: every wallet ever enriched, for the re-eval TTL.
-/// The on-disk encoding is owned by `store` (fixed 28-byte records).
+/// The on-disk encoding is owned by `store` (fixed 29-byte records, gzip).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EvaluatedSet {
     pub entries: std::collections::HashMap<Addr, Evaluated>,

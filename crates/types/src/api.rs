@@ -20,7 +20,10 @@ pub struct Page<T> {
 
 impl<T> Default for Page<T> {
     fn default() -> Self {
-        Page { data: Vec::new(), next_cursor: None }
+        Page {
+            data: Vec::new(),
+            next_cursor: None,
+        }
     }
 }
 
@@ -63,10 +66,11 @@ pub struct FeedTrade {
 }
 
 impl FeedTrade {
-    /// Protocol-V2 combo bets have an empty title, `outcome_index == 999` and a
-    /// zero-padded synthetic condition id that per-market endpoints reject (400).
+    /// Protocol-V2 combo bets have a zero-padded synthetic condition id that per-market
+    /// endpoints reject (400), and usually an empty title. Note `outcome_index == 999`
+    /// is NOT a combo marker: the feed uses it for ordinary rows with an unknown index.
     pub fn is_combo(&self) -> bool {
-        self.outcome_index == 999 || self.title.is_empty() || is_synthetic_condition(&self.condition_id)
+        self.title.is_empty() || is_synthetic_condition(&self.condition_id)
     }
 
     pub fn usdc(&self) -> f64 {
@@ -74,9 +78,10 @@ impl FeedTrade {
     }
 }
 
-/// Combo condition ids end in a long run of zeros (`0x038e…93c0000000000…`).
+/// Combo condition ids end in a long run of zeros (`0x038e…93c0000000000…`) and are
+/// shorter than real ones (64 chars instead of 66), so only the suffix is checked.
 pub fn is_synthetic_condition(condition_id: &str) -> bool {
-    condition_id.len() == 66 && condition_id.ends_with("00000000000000000000")
+    condition_id.len() >= 42 && condition_id.ends_with("00000000000000000000")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -401,7 +406,11 @@ pub struct RequestStats {
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("HTTP {status} from {url}: {body}")]
-    Http { status: u16, url: String, body: String },
+    Http {
+        status: u16,
+        url: String,
+        body: String,
+    },
     #[error("rate limited by {url} after retries")]
     RateLimited { url: String },
     #[error("could not decode response from {url}: {msg}")]
@@ -420,24 +429,76 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[async_trait]
 pub trait PolyApi: Send + Sync {
     // ---- Data API v2 ----
-    async fn trades_page(&self, q: &TradesQuery, cursor: Option<&str>) -> ApiResult<Page<FeedTrade>>;
-    async fn user_trades(&self, user: &Addr, start: Option<i64>, cursor: Option<&str>) -> ApiResult<Page<FeedTrade>>;
-    async fn activity(&self, q: &ActivityQuery, cursor: Option<&str>) -> ApiResult<Page<ActivityRow>>;
-    async fn positions(&self, user: &Addr, status: PosStatus, cursor: Option<&str>) -> ApiResult<Page<PositionRow>>;
-    /// All holders of one market whose position changed at or after `start`.
-    async fn market_positions(&self, condition_id: &str, start: Option<i64>, cursor: Option<&str>) -> ApiResult<Page<PositionRow>>;
-    async fn holders(&self, condition_id: &str, include_pnl: bool, limit: u32) -> ApiResult<Vec<HolderGroup>>;
+    async fn trades_page(
+        &self,
+        q: &TradesQuery,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<FeedTrade>>;
+    async fn user_trades(
+        &self,
+        user: &Addr,
+        start: Option<i64>,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<FeedTrade>>;
+    async fn activity(
+        &self,
+        q: &ActivityQuery,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<ActivityRow>>;
+    async fn positions(
+        &self,
+        user: &Addr,
+        status: PosStatus,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<PositionRow>>;
+    /// All positions in one market (any holder) whose position changed at or after
+    /// `start`. Without `status` the API returns current holders (OPEN/REDEEMABLE…);
+    /// after resolution, redeemed winners only appear with `Some(PosStatus::Closed)`.
+    async fn market_positions(
+        &self,
+        condition_id: &str,
+        status: Option<PosStatus>,
+        start: Option<i64>,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<PositionRow>>;
+    async fn holders(
+        &self,
+        condition_id: &str,
+        include_pnl: bool,
+        limit: u32,
+    ) -> ApiResult<Vec<HolderGroup>>;
     async fn user_stats(&self, user: &Addr) -> ApiResult<Option<UserStatsRow>>;
     async fn value(&self, user: &Addr) -> ApiResult<f64>;
-    async fn leaderboard(&self, period: TimePeriod, sort: LeaderboardSort, cursor: Option<&str>) -> ApiResult<Page<LeaderboardRow>>;
-    async fn biggest_winners(&self, period: TimePeriod, cursor: Option<&str>) -> ApiResult<Page<BiggestWinnerRow>>;
+    async fn leaderboard(
+        &self,
+        period: TimePeriod,
+        sort: LeaderboardSort,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<LeaderboardRow>>;
+    async fn biggest_winners(
+        &self,
+        period: TimePeriod,
+        cursor: Option<&str>,
+    ) -> ApiResult<Page<BiggestWinnerRow>>;
     async fn tokens(&self, condition_id: &str) -> ApiResult<Vec<TokenRow>>;
-    async fn prices_history(&self, token_id: &str, start: i64, end: i64) -> ApiResult<Vec<PricePoint>>;
+    async fn prices_history(
+        &self,
+        token_id: &str,
+        start: i64,
+        end: i64,
+    ) -> ApiResult<Vec<PricePoint>>;
     async fn status(&self) -> ApiResult<ApiStatus>;
 
     // ---- Gamma ----
-    /// Markets closed at or after `since` (unix s), newest first, at most `max`.
-    async fn recently_closed_markets(&self, since: i64, max: usize) -> ApiResult<Vec<MarketMeta>>;
+    /// Markets closed at or after `since` (unix s) with lifetime volume ≥ `min_volume`
+    /// (filtered server-side: without it Gamma's 2000-offset window covers only the
+    /// last hour of tiny markets), newest first, at most `max`.
+    async fn recently_closed_markets(
+        &self,
+        since: i64,
+        min_volume: f64,
+        max: usize,
+    ) -> ApiResult<Vec<MarketMeta>>;
     /// Market metadata for the given condition ids (implementation batches requests).
     async fn markets_by_condition(&self, condition_ids: &[String]) -> ApiResult<Vec<MarketMeta>>;
     /// `None` when Gamma has no profile (404).
@@ -457,31 +518,54 @@ mod tests {
     use super::*;
 
     fn fixture(name: &str) -> serde_json::Value {
-        let p = format!("{}/../../fixtures/live/{name}.json", env!("CARGO_MANIFEST_DIR"));
+        let p = format!(
+            "{}/../../fixtures/live/{name}.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
         serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap()
     }
 
     #[test]
     fn decodes_recorded_feed_and_flags_combos() {
-        let rows: Vec<FeedTrade> = serde_json::from_value(fixture("trades_global")["data"].clone()).unwrap();
+        let rows: Vec<FeedTrade> =
+            serde_json::from_value(fixture("trades_global")["data"].clone()).unwrap();
         assert!(!rows.is_empty());
         assert!(rows.iter().any(|r| r.is_combo()));
         assert!(rows.iter().any(|r| !r.is_combo()));
+        assert!(rows
+            .iter()
+            .filter(|r| r.is_combo())
+            .all(|r| is_synthetic_condition(&r.condition_id)));
+        // outcome_index 999 rows with a real market are kept.
+        assert!(rows.iter().any(|r| r.outcome_index == 999 && !r.is_combo()));
+        // The 64-char ids of the first recording are combos too.
+        assert!(is_synthetic_condition(
+            "0x038e536f830e26cc80c6b155230ea0a93c0000000000000000000000000000"
+        ));
     }
 
     #[test]
     fn decodes_recorded_rows() {
-        let _: Vec<ActivityRow> = serde_json::from_value(fixture("activity_user")["data"].clone()).unwrap();
+        let _: Vec<ActivityRow> =
+            serde_json::from_value(fixture("activity_user")["data"].clone()).unwrap();
         for s in ["OPEN", "CLOSED", "REDEEMABLE", "REDEEMABLE_LOST"] {
             let _: Vec<PositionRow> =
-                serde_json::from_value(fixture(&format!("positions_user_{s}"))["data"].clone()).unwrap();
+                serde_json::from_value(fixture(&format!("positions_user_{s}"))["data"].clone())
+                    .unwrap();
         }
-        let _: Vec<PositionRow> = serde_json::from_value(fixture("positions_condition")["data"].clone()).unwrap();
-        let _: Vec<HolderGroup> = serde_json::from_value(fixture("holders_pnl")["data"].clone()).unwrap();
-        let _: UserStatsRow = serde_json::from_value(fixture("user_stats")["data"].clone()).unwrap();
-        let _: Vec<LeaderboardRow> = serde_json::from_value(fixture("leaderboard")["data"].clone()).unwrap();
-        let _: Vec<BiggestWinnerRow> = serde_json::from_value(fixture("biggest_winners")["data"].clone()).unwrap();
-        let _: Vec<TokenRow> = serde_json::from_value(fixture("tokens_resolved")["data"].clone()).unwrap();
-        let _: Vec<PricePoint> = serde_json::from_value(fixture("prices_history")["data"].clone()).unwrap();
+        let _: Vec<PositionRow> =
+            serde_json::from_value(fixture("positions_condition")["data"].clone()).unwrap();
+        let _: Vec<HolderGroup> =
+            serde_json::from_value(fixture("holders_pnl")["data"].clone()).unwrap();
+        let _: UserStatsRow =
+            serde_json::from_value(fixture("user_stats")["data"].clone()).unwrap();
+        let _: Vec<LeaderboardRow> =
+            serde_json::from_value(fixture("leaderboard")["data"].clone()).unwrap();
+        let _: Vec<BiggestWinnerRow> =
+            serde_json::from_value(fixture("biggest_winners")["data"].clone()).unwrap();
+        let _: Vec<TokenRow> =
+            serde_json::from_value(fixture("tokens_resolved")["data"].clone()).unwrap();
+        let _: Vec<PricePoint> =
+            serde_json::from_value(fixture("prices_history")["data"].clone()).unwrap();
     }
 }

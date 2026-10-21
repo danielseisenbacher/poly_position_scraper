@@ -1,0 +1,69 @@
+# Weekly: prune stale wallet files, rebuild the dashboard JSON, and squash the
+# `data` branch to a single commit so it never grows without bound.
+name: maintenance
+
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-writer
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  compact:
+    # Fallback if ubuntu-slim is unavailable: ubuntu-latest.
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUST_LOG: info
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            polywatch.toml
+            scripts/ci/
+
+      - name: Check out data branch
+        id: data
+        run: scripts/ci/clone-data.sh
+
+      - name: Download binary
+        if: steps.data.outputs.exists == 'true'
+        run: scripts/ci/fetch-binary.sh
+
+      - name: Compact and re-render
+        if: steps.data.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          bin/polywatch compact --data-dir data --state-dir state
+          bin/polywatch render-site --data-dir data --state-dir state
+
+      # Safe to force-push: every other writer of `data` is in the data-writer group.
+      - name: Squash data branch
+        if: steps.data.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          cd data
+          before="$(du -sh .git | cut -f1)"
+          git checkout --quiet --orphan squashed
+          git add -A
+          git commit --quiet -m "data snapshot $(date -u +%Y-%m-%d)"
+          git push --quiet --force origin squashed:data
+          {
+            echo "### maintenance"
+            echo "data branch squashed to $(git rev-parse --short HEAD): $(git ls-files | wc -l) files, $(du -sh --exclude=.git . | cut -f1) (local .git was ${before})"
+          } >> "$GITHUB_STEP_SUMMARY"

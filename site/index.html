@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="polywatch: heuristic insider-candidate leads on Polymarket">
+<title>polywatch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='none' stroke='%233987e5' stroke-width='2'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23d03b3b'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<header class="top">
+  <div class="brand">
+    <a href="#" class="logo">polywatch</a>
+    <nav id="nav" aria-label="Views"><a href="#" data-v="">overview</a><a href="#tape" data-v="tape">tape</a></nav>
+  </div>
+  <div id="status" class="status" aria-live="polite"><span class="muted">loading…</span></div>
+  <p class="disc">Heuristic leads, not proof of insider trading. Scores flag unusual patterns; most have innocent explanations.</p>
+</header>
+<main id="view" tabindex="-1"></main>
+<aside id="drawer" class="drawer" hidden aria-label="Wallet details">
+  <div class="drawer-bar"><span class="muted">wallet</span><button type="button" id="drawer-close" class="ibtn" aria-label="Close wallet drawer" title="Close (Esc)">✕</button></div>
+  <div id="drawer-body" class="drawer-body"></div>
+</aside>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<footer class="foot muted"><span id="src"></span> · auto-refresh every 5 min · <noscript>This dashboard needs JavaScript.</noscript></footer>
+</body>
+</html>

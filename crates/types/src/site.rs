@@ -114,6 +114,10 @@ pub struct ApiHealth {
 
 impl From<&RequestStats> for ApiHealth {
     fn from(s: &RequestStats) -> Self {
-        ApiHealth { requests: s.requests.clone(), rate_limited: s.rate_limited, errors: s.errors }
+        ApiHealth {
+            requests: s.requests.clone(),
+            rate_limited: s.rate_limited,
+            errors: s.errors,
+        }
     }
 }

@@ -1,0 +1,45 @@
+---
+source: crates/store/src/tests.rs
+expression: tape
+---
+[
+  {
+    "addr": "0x0000000000000000000000000000000000000004",
+    "name": "0x0000…0004",
+    "score": 10,
+    "ts": 1792540740,
+    "kind": "buy",
+    "title": "Market m1",
+    "outcome": "Yes",
+    "price": 0.2,
+    "usdc": 5.0,
+    "condition_id": "m1",
+    "tx": "0xtxd1"
+  },
+  {
+    "addr": "0x0000000000000000000000000000000000000001",
+    "name": "alpha",
+    "score": 82,
+    "ts": 1792537200,
+    "kind": "buy",
+    "title": "Market m1",
+    "outcome": "Yes",
+    "price": 0.2,
+    "usdc": 600.0,
+    "condition_id": "m1",
+    "tx": "0xtxa1"
+  },
+  {
+    "addr": "0x0000000000000000000000000000000000000002",
+    "name": "Quiet-Owl",
+    "score": 55,
+    "ts": 1792371600,
+    "kind": "buy",
+    "title": "Market m1",
+    "outcome": "Yes",
+    "price": 0.2,
+    "usdc": 20.0,
+    "condition_id": "m1",
+    "tx": "0xtxb1"
+  }
+]

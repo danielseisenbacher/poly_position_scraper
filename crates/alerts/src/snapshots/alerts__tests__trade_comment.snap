@@ -1,0 +1,7 @@
+---
+source: crates/alerts/src/tests.rs
+expression: "lines.join(\"\\n\")"
+---
+- 🟢 BUY **$12,500** · Yes · Will the Fed cut rates in December? @ 0.23 · 2026-10-15 08:03 UTC · [tx](https://polygonscan.com/tx/0x9f2c1e0b7a6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b) · ≥ $500
+- 🔴 SELL **$3,211** · Yes · Will the Fed cut rates in December? @ 0.23 · 2026-10-15 08:04 UTC · [tx](https://polygonscan.com/tx/0x9f2c1e0b7a6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b) · 32% of wallet value
+- 💰 REDEEM **$9,000** · Yes · Will the Fed cut rates in December? @ 0.23 · 2026-10-15 08:05 UTC · [tx](https://polygonscan.com/tx/0x9f2c1e0b7a6d5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b) · ≥ $500

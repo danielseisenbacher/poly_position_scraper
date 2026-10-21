@@ -1,0 +1,12 @@
+---
+source: crates/alerts/src/tests.rs
+expression: labels
+---
+[
+  "insider-candidate",
+  "tier:high",
+  "sig:old-account-win-rate",
+  "sig:concentration",
+  "sig:resolution-timing",
+  "cluster"
+]

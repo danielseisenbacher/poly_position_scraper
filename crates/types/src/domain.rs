@@ -73,7 +73,9 @@ impl MarketMeta {
     }
 
     pub fn winning_token(&self) -> Option<&str> {
-        self.winning_index.and_then(|i| self.token_ids.get(i)).map(String::as_str)
+        self.winning_index
+            .and_then(|i| self.token_ids.get(i))
+            .map(String::as_str)
     }
 }
 
@@ -111,7 +113,11 @@ pub struct Position {
 
 impl From<PositionRow> for Position {
     fn from(r: PositionRow) -> Self {
-        let cost = if r.total_cost_usdc > 0.0 { r.total_cost_usdc } else { r.avg_price * r.total_size };
+        let cost = if r.total_cost_usdc > 0.0 {
+            r.total_cost_usdc
+        } else {
+            r.avg_price * r.total_size
+        };
         Position {
             condition_id: r.condition_id,
             token_id: r.token_id,
@@ -140,8 +146,11 @@ impl From<PositionRow> for Position {
 
 impl Position {
     pub fn is_resolved(&self) -> bool {
-        matches!(self.status, PosStatus::Redeemable | PosStatus::RedeemableLost)
-            || (self.status == PosStatus::Closed && (self.current_price >= 0.999 || self.current_price <= 0.001))
+        matches!(
+            self.status,
+            PosStatus::Redeemable | PosStatus::RedeemableLost
+        ) || (self.status == PosStatus::Closed
+            && (self.current_price >= 0.999 || self.current_price <= 0.001))
     }
 
     /// `Some(true)` won, `Some(false)` lost, `None` unresolved/unknown.
@@ -315,7 +324,9 @@ pub struct Signal {
     pub refs: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Default,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Tier {
     #[default]
@@ -449,7 +460,9 @@ impl Wallet {
     }
 
     pub fn open_positions(&self) -> impl Iterator<Item = &Position> {
-        self.positions.iter().filter(|p| p.status == PosStatus::Open)
+        self.positions
+            .iter()
+            .filter(|p| p.status == PosStatus::Open)
     }
 }
 
@@ -477,8 +490,12 @@ mod tests {
 
     #[test]
     fn position_from_recorded_row() {
-        let p = format!("{}/../../fixtures/live/positions_user_REDEEMABLE.json", env!("CARGO_MANIFEST_DIR"));
-        let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
+        let p = format!(
+            "{}/../../fixtures/live/positions_user_REDEEMABLE.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap();
         let rows: Vec<PositionRow> = serde_json::from_value(v["data"].clone()).unwrap();
         let pos: Position = rows[0].clone().into();
         assert_eq!(pos.status, PosStatus::Redeemable);

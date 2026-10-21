@@ -1,0 +1,106 @@
+# Test every change; on main, publish the static musl binary to release `bin-latest`
+# (the data workflows download it instead of compiling).
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "polywatch.toml"
+      - ".github/workflows/build.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt
+        run: |
+          set -euo pipefail
+          cargo fmt --all --check
+      - name: cargo clippy
+        run: |
+          set -euo pipefail
+          cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test
+        run: |
+          set -euo pipefail
+          cargo test --workspace
+
+  release:
+    needs: test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET: x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: musl
+      - name: Install musl-tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq musl-tools
+      - name: Build static binary
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --target "$TARGET" -p polywatch
+          mkdir -p dist
+          cp "target/$TARGET/release/polywatch" dist/polywatch
+          file dist/polywatch
+          dist/polywatch --version
+          (cd dist && sha256sum polywatch > polywatch.sha256)
+          cat dist/polywatch.sha256
+      - name: Publish to release bin-latest
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          gh release view bin-latest -R "$repo" > /dev/null 2>&1 \
+            || gh release create bin-latest -R "$repo" --prerelease \
+                 --title "polywatch binary (latest main)" --notes "Built from main by build.yml"
+          gh release upload bin-latest -R "$repo" --clobber dist/polywatch dist/polywatch.sha256
+          gh release edit bin-latest -R "$repo" \
+            --notes "Built from main by build.yml: ${GITHUB_SHA} (run ${GITHUB_RUN_ID})."
+          {
+            echo "### Published \`bin-latest\`"
+            echo "commit \`${GITHUB_SHA::12}\`, $(du -h dist/polywatch | cut -f1), sha256 \`$(cut -d' ' -f1 dist/polywatch.sha256)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

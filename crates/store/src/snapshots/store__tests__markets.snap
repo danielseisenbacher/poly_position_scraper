@@ -1,0 +1,58 @@
+---
+source: crates/store/src/tests.rs
+expression: markets
+---
+[
+  {
+    "condition_id": "m1",
+    "title": "Market m1",
+    "slug": "market-m1",
+    "end_date": 1795132800,
+    "volume": null,
+    "resolved_outcome": null,
+    "wallets": [
+      {
+        "addr": "0x0000000000000000000000000000000000000001",
+        "score": 82,
+        "outcome": "Yes",
+        "avg_price": 0.2,
+        "size": 1000.0,
+        "current_price": 0.5
+      },
+      {
+        "addr": "0x0000000000000000000000000000000000000002",
+        "score": 55,
+        "outcome": "No",
+        "avg_price": 0.7,
+        "size": 300.0,
+        "current_price": 0.5
+      }
+    ]
+  },
+  {
+    "condition_id": "m2",
+    "title": "Cached question m2?",
+    "slug": "cached-m2",
+    "end_date": 1792454400,
+    "volume": 42000.0,
+    "resolved_outcome": "Yes",
+    "wallets": [
+      {
+        "addr": "0x0000000000000000000000000000000000000001",
+        "score": 82,
+        "outcome": "Yes",
+        "avg_price": 0.1,
+        "size": 500.0,
+        "current_price": 1.0
+      },
+      {
+        "addr": "0x0000000000000000000000000000000000000002",
+        "score": 55,
+        "outcome": "No",
+        "avg_price": 0.8,
+        "size": 200.0,
+        "current_price": 0.0
+      }
+    ]
+  }
+]

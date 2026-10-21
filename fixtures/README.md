@@ -6,7 +6,7 @@ through wiremock; nothing in `cargo test` touches the network.
 
 | file | request |
 |---|---|
-| `trades_global.json` | `GET /v2/trades?limit=200` (≈25 % combo rows: `outcome_index` 999, empty title) |
+| `trades_global.json` | `GET /v2/trades?limit=200` (a few combo rows with zero-padded condition ids; `outcome_index` 999 also appears on ordinary rows and is not a combo marker) |
 | `trades_user.json`, `activity_user.json` | `/v2/trades?user=…&taker_only=false`, `/v2/activity?user=…` |
 | `positions_user_{OPEN,CLOSED,REDEEMABLE,REDEEMABLE_LOST}.json` | `/v2/positions?user=…&status=…` |
 | `positions_condition.json` | `/v2/positions?condition=…` |

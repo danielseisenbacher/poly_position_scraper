@@ -1,16 +1,39 @@
-# poly_position_scraper
+# polywatch
 
-Flags new Polymarket wallets that might be trading on inside information. A GitHub Actions workflow ([PositionScraper.yml](.github/workflows/PositionScraper.yml)) runs the pipeline every 4 hours and opens an issue whenever it flags wallets.
+Finds Polymarket wallets that look like they trade on inside information. It looks for:
 
-## How it works
+- new accounts betting big on longshots
+- accounts with statistically improbable win rates
+- leaderboard newcomers
+- linked accounts
+- well-timed bets
 
-The numbered scripts run in order, each narrowing down the list of wallets:
+It then tracks the flagged wallets' trades every ~8 minutes.
 
-1. **01–03**: Collect all wallets with fewer than 6 positions from Polymarket's positions subgraph, and keep only those not seen in the previous run (tracked in `users_already_seen.txt`).
-2. **04–05**: Keep wallets holding more than $500.
-3. **06**: Keep wallets whose account is less than 60 days old.
-4. **07**: Flag wallets whose average entry price is 30¢ or less, meaning mostly long-shot bets.
+**Where to look**
 
-Flagged wallets are posted as an issue labeled `insider-alert` and added to `newcomers.txt`.
+- Dashboard: https://danielseisenbacher.github.io/poly_position_scraper/
+- Notifications: issues labelled [`insider-candidate`](https://github.com/danielseisenbacher/poly_position_scraper/issues?q=label%3Ainsider-candidate). Each flagged wallet gets one issue, and new findings and big trades are added as comments on it.
 
-These are leads, not proof: the filters also catch lucky or contrarian traders.
+**How it runs** (GitHub Actions, one static Rust binary, public APIs only, no keys)
+
+| Workflow | When | Does |
+|---|---|---|
+| `discover.yml` | every 4 h | scores new wallets, opens and updates issues, writes the `data` branch |
+| `track.yml` | every 8 min | polls watched wallets for new trades |
+| `pages.yml` | on `site/` changes | deploys the dashboard (it reads its data from the `data` branch) |
+| `maintenance.yml` | weekly | prunes stale wallets, squashes the `data` branch |
+| `build.yml` | on code changes | tests, then publishes the binary to release `bin-latest` |
+
+**Layout:** `crates/` holds the Rust workspace (`cli` is the `polywatch` binary), `site/` the
+static dashboard, `fixtures/` the recorded API responses for tests, and `scripts/ci/` the
+workflow helpers.
+
+**Run locally:** `cargo run -p polywatch -- discover --dry-run --data-dir /tmp/pw`
+
+**Config:** `polywatch.toml`. Defaults are in `crates/types/src/config.rs`.
+
+These are heuristic leads, not proof. The signals also catch lucky, skilled or
+contrarian traders.
+
+Migrating from the old Python pipeline: see [MIGRATION.md](MIGRATION.md).

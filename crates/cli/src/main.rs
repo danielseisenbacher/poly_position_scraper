@@ -3,7 +3,7 @@
 //! Layout on disk (what the workflows check out / download before running):
 //! - `--data-dir` (default `data/`): the orphan `data` branch.
 //! - `--state-dir` (default `state/`): release `state-latest` assets
-//!   (`evaluated.bin`, `proxy_owner.bin`, `trades_archive/`).
+//!   (`evaluated.bin`, `proxy_owner.bin`, `markets_cache.json.gz`, `trades_archive/`).
 //!
 //! Git commits and release uploads are done by the workflows, not by this binary.
 
@@ -75,7 +75,10 @@ const PROXY_OWNER: &str = "proxy_owner.bin";
 const ARCHIVE_DIR: &str = "trades_archive";
 
 fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 fn run_id() -> Option<String> {
@@ -89,7 +92,8 @@ fn github() -> Result<alerts::GitHubClient> {
 }
 
 fn read_seed(path: &Path) -> Result<Vec<Addr>> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     Ok(text.lines().filter_map(|l| Addr::parse(l).ok()).collect())
 }
 
@@ -122,11 +126,16 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let cfg = Config::load(&cli.config)?;
-    let data = DataDir::open(&cli.data_dir)?;
     std::fs::create_dir_all(&cli.state_dir)?;
+    let data = DataDir::open(&cli.data_dir)?.with_state_dir(&cli.state_dir);
 
     match cli.cmd {
-        Cmd::Discover { dry_run, seed_file, shard, report } => {
+        Cmd::Discover {
+            dry_run,
+            seed_file,
+            shard,
+            report,
+        } => {
             let api = api::Client::new(&cfg.api)?;
             let mut assets = discovery::StateAssets {
                 evaluated: store::bin::load_evaluated(&cli.state_dir.join(EVALUATED))?,
@@ -134,14 +143,21 @@ async fn main() -> Result<()> {
             };
             let opts = discovery::DiscoverOpts {
                 dry_run,
-                seed: seed_file.as_deref().map(read_seed).transpose()?.unwrap_or_default(),
+                seed: seed_file
+                    .as_deref()
+                    .map(read_seed)
+                    .transpose()?
+                    .unwrap_or_default(),
                 shard: shard.as_deref().map(parse_shard).transpose()?,
                 now: now(),
             };
             let rep = discovery::run(&api, &data, &mut assets, &cfg, &opts).await?;
             if !dry_run {
                 store::bin::save_evaluated(&cli.state_dir.join(EVALUATED), &assets.evaluated)?;
-                store::bin::save_proxy_owner(&cli.state_dir.join(PROXY_OWNER), &assets.proxy_owner)?;
+                store::bin::save_proxy_owner(
+                    &cli.state_dir.join(PROXY_OWNER),
+                    &assets.proxy_owner,
+                )?;
                 store::render_site(
                     &data,
                     &cfg,
@@ -160,20 +176,28 @@ async fn main() -> Result<()> {
         }
         Cmd::Track { dry_run, report } => {
             let api = api::Client::new(&cfg.api)?;
-            let opts = tracker::TrackOpts { dry_run, now: now() };
+            let opts = tracker::TrackOpts {
+                dry_run,
+                now: now(),
+            };
             let rep = tracker::run(&api, &data, &cfg, &opts).await?;
             if !dry_run {
                 store::archive::append(&cli.state_dir.join(ARCHIVE_DIR), &rep.archive)?;
                 if !rep.events.is_empty() {
                     match github() {
                         Ok(gh) => {
-                            let aopts = alerts::AlertOpts { dry_run, now: opts.now };
+                            let aopts = alerts::AlertOpts {
+                                dry_run,
+                                now: opts.now,
+                            };
                             alerts::comment_trades(&gh, &data, &cfg, &rep.events, &aopts).await?;
                         }
                         Err(e) => tracing::warn!("skipping trade comments: {e:#}"),
                     }
                 }
-                let meta = data.read::<types::site::Meta>(store::paths::META)?.unwrap_or_default();
+                let meta = data
+                    .read::<types::site::Meta>(store::paths::META)?
+                    .unwrap_or_default();
                 store::render_site(
                     &data,
                     &cfg,
@@ -192,11 +216,22 @@ async fn main() -> Result<()> {
         }
         Cmd::Alert { dry_run } => {
             let gh = github()?;
-            let rep = alerts::sync(&gh, &data, &cfg, &alerts::AlertOpts { dry_run, now: now() }).await?;
+            let rep = alerts::sync(
+                &gh,
+                &data,
+                &cfg,
+                &alerts::AlertOpts {
+                    dry_run,
+                    now: now(),
+                },
+            )
+            .await?;
             emit_report(&rep, None)?;
         }
         Cmd::RenderSite => {
-            let meta = data.read::<types::site::Meta>(store::paths::META)?.unwrap_or_default();
+            let meta = data
+                .read::<types::site::Meta>(store::paths::META)?
+                .unwrap_or_default();
             let summary = store::render_site(
                 &data,
                 &cfg,
@@ -217,7 +252,10 @@ async fn main() -> Result<()> {
         Cmd::LegacyClose { old_label, dry_run } => {
             let gh = github()?;
             let n = alerts::legacy_close(&gh, &cfg, &old_label, dry_run).await?;
-            println!("{} {n} issues labelled {old_label:?}", if dry_run { "would close" } else { "closed" });
+            println!(
+                "{} {n} issues labelled {old_label:?}",
+                if dry_run { "would close" } else { "closed" }
+            );
         }
     }
     Ok(())

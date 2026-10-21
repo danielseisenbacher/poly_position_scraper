@@ -1,0 +1,47 @@
+---
+source: crates/store/src/tests.rs
+expression: meta
+---
+{
+  "generated_at": 1792540800,
+  "run_id": "123456",
+  "last_discover": 1792533600,
+  "last_track": 1792540500,
+  "counts": {
+    "candidates": 4,
+    "watchlist": 2,
+    "high": 1,
+    "medium": 2,
+    "clusters": 1,
+    "wallets_scanned_last_run": 77,
+    "trades_tracked_last_run": 3
+  },
+  "api": {
+    "requests": {
+      "positions": 321
+    },
+    "rate_limited": 2,
+    "errors": 0
+  },
+  "feed_lag_s": 4,
+  "feed_truncated": false,
+  "score_histogram": [
+    0,
+    1,
+    0,
+    0,
+    1,
+    2,
+    0,
+    0,
+    1,
+    0
+  ],
+  "signal_counts": {
+    "NewAccountLongshot": 1,
+    "OldAccountWinRate": 1,
+    "LongshotWinner": 1,
+    "Concentration": 1,
+    "NicheMarket": 1
+  }
+}

@@ -1,0 +1,105 @@
+---
+source: crates/store/src/tests.rs
+expression: index
+---
+[
+  {
+    "addr": "0x0000000000000000000000000000000000000001",
+    "name": "alpha",
+    "score": 82,
+    "tier": "high",
+    "signals": [
+      [
+        "LongshotWinner",
+        1.0
+      ],
+      [
+        "OldAccountWinRate",
+        0.6
+      ]
+    ],
+    "age_d": 40.0,
+    "pnl": 1234.5,
+    "win_rate": 0.75,
+    "n_resolved": 12.0,
+    "z": 3.5,
+    "value": 500.0,
+    "n_markets": 2,
+    "last_trade_ts": 1792537200,
+    "cluster_id": "c-0000000000",
+    "issue": 12,
+    "watched": true,
+    "first_seen": 1790812800
+  },
+  {
+    "addr": "0x0000000000000000000000000000000000000002",
+    "name": "Quiet-Owl",
+    "score": 55,
+    "tier": "medium",
+    "signals": [
+      [
+        "NewAccountLongshot",
+        0.8
+      ]
+    ],
+    "age_d": 5.0,
+    "pnl": -185.0,
+    "win_rate": null,
+    "n_resolved": 0.0,
+    "z": 0.0,
+    "value": 0.0,
+    "n_markets": 3,
+    "last_trade_ts": 1792371600,
+    "cluster_id": null,
+    "issue": 34,
+    "watched": true,
+    "first_seen": 1790812800
+  },
+  {
+    "addr": "0x0000000000000000000000000000000000000005",
+    "name": "0x0000…0005",
+    "score": 50,
+    "tier": "medium",
+    "signals": [],
+    "age_d": null,
+    "pnl": 7.9,
+    "win_rate": null,
+    "n_resolved": 0.0,
+    "z": 0.0,
+    "value": 0.0,
+    "n_markets": 2,
+    "last_trade_ts": 1792108800,
+    "cluster_id": null,
+    "issue": null,
+    "watched": false,
+    "first_seen": 1790812800
+  },
+  {
+    "addr": "0x0000000000000000000000000000000000000003",
+    "name": "0x0000…0003",
+    "score": 40,
+    "tier": "low",
+    "signals": [
+      [
+        "Concentration",
+        0.5
+      ],
+      [
+        "NicheMarket",
+        0.5
+      ]
+    ],
+    "age_d": null,
+    "pnl": 8.000000000000004,
+    "win_rate": null,
+    "n_resolved": 0.0,
+    "z": 0.0,
+    "value": 0.0,
+    "n_markets": 1,
+    "last_trade_ts": 1792368000,
+    "cluster_id": null,
+    "issue": null,
+    "watched": false,
+    "first_seen": 1790812800
+  }
+]

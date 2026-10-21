@@ -1,0 +1,101 @@
+# Every 8 minutes: poll the watchlist wallets for new trades, comment on their
+# issues for big trades, commit to `data`, append to the monthly trade archive.
+# Kept lean on purpose: no Rust toolchain, sparse checkout, shallow data clone.
+name: track
+
+on:
+  schedule:
+    # 8-minute spacing, 4-minute gap around the hour, avoids the busy minute 0.
+    - cron: "3,11,19,27,35,43,51,59 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Poll and report only: no data commit, no comments, no archive upload"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-writer
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  track:
+    # ubuntu-slim: 1 vCPU container runner, enough for this I/O-bound job.
+    # Fallback if it is unavailable or too slow: ubuntu-latest.
+    runs-on: ubuntu-slim
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      RUST_LOG: info
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            polywatch.toml
+            scripts/ci/
+
+      # Exits 0 with exists=false before the first discovery has created `data`.
+      - name: Check out data branch
+        id: data
+        run: scripts/ci/clone-data.sh
+
+      - name: Download binary
+        if: steps.data.outputs.exists == 'true'
+        run: scripts/ci/fetch-binary.sh
+
+      # Release assets cannot contain `/`: asset trades-YYYY-MM.jsonl.gz is the
+      # file state/trades_archive/YYYY-MM.jsonl.gz. Only the current month is fetched.
+      - name: Download this month's trade archive
+        if: steps.data.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          month="$(date -u +%Y-%m)"
+          scripts/ci/state.sh fetch "trades-${month}.jsonl.gz:state/trades_archive/${month}.jsonl.gz"
+
+      - name: Track
+        if: steps.data.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          args=(track --data-dir data --state-dir state --report track.report.json)
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          bin/polywatch "${args[@]}"
+
+      - name: Commit data
+        if: steps.data.outputs.exists == 'true' && env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          scripts/ci/push-data.sh "track: $(jq -r '.new_trades' track.report.json) new trades"
+
+      # Uploads only archives that changed. A file for another month (e.g. trades
+      # from just before midnight on the 1st) is appended to that month's remote
+      # asset rather than replacing it (multi-member gzip concatenates cleanly).
+      - name: Upload trade archive
+        if: steps.data.outputs.exists == 'true' && env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          pairs=()
+          for f in state/trades_archive/*.jsonl.gz; do
+            pairs+=("trades-$(basename "$f"):$f")
+          done
+          if [[ ${#pairs[@]} -gt 0 ]]; then
+            scripts/ci/state.sh push --append-new "${pairs[@]}"
+          fi
+
+      - name: Job summary
+        if: always() && steps.data.outputs.exists == 'true'
+        run: scripts/ci/summary.sh track track.report.json "$DRY_RUN"

@@ -30,7 +30,9 @@ impl Config {
     /// Defaults overlaid with `path` if it exists. A missing file is not an error.
     pub fn load(path: &Path) -> Result<Config, ConfigError> {
         match std::fs::read_to_string(path) {
-            Ok(s) => toml::from_str(&s).map_err(|e| ConfigError::Parse(path.display().to_string(), e)),
+            Ok(s) => {
+                toml::from_str(&s).map_err(|e| ConfigError::Parse(path.display().to_string(), e))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
             Err(e) => Err(ConfigError::Io(path.display().to_string(), e)),
         }
@@ -84,7 +86,9 @@ impl Default for ApiConfig {
             data_base: "https://data-api.polymarket.com/v2".into(),
             gamma_base: "https://gamma-api.polymarket.com".into(),
             rpc_url: "https://polygon-bor-rpc.publicnode.com".into(),
-            user_agent: "polywatch/0.1 (+https://github.com/danielseisenbacher/poly_position_scraper)".into(),
+            user_agent:
+                "polywatch/0.1 (+https://github.com/danielseisenbacher/poly_position_scraper)"
+                    .into(),
             data_per_10s: 600,
             trades_per_10s: 200,
             positions_per_10s: 150,
@@ -95,7 +99,8 @@ impl Default for ApiConfig {
             timeout_s: 30,
             rpc_log_chunk: 2000,
             factory_address: "0x00000000000Fb5C9ADea0298D729A0CB3823Cc07".into(),
-            factory_topic0: "0x7441de0ad639fe5d2bf1c22447715a0528b682385736bb40ae8dd92555eb8276".into(),
+            factory_topic0: "0x7441de0ad639fe5d2bf1c22447715a0528b682385736bb40ae8dd92555eb8276"
+                .into(),
         }
     }
 }
@@ -117,12 +122,28 @@ pub struct DiscoveryConfig {
     pub reeval_ttl_s: i64,
     /// Hard cap on wallets enriched per run (API budget).
     pub max_enrich: usize,
-    /// Stage-A gate after user-stats: drop wallets with fewer trades than this…
+    /// Stage-A gate after user-stats (one cheap call) before positions (4+ calls).
+    /// Drop wallets with fewer trades than this…
     pub min_trade_count: u64,
+    /// …or more markets / trades than this (market makers and bots, never candidates).
+    pub gate_max_markets: u64,
+    pub gate_max_trade_count: u64,
+    /// Feed-only wallets must be new (≤ `signals.new_account_days`) or have traded
+    /// ≥ `signals.min_resolved` markets with at least this realized PnL. Other sources
+    /// (leaderboard, longshot holders, seeds, watchlist) always pass.
+    pub gate_min_realized_pnl: f64,
+    /// `/v2/positions` pages per status per wallet (1000 rows each).
+    pub max_position_pages: usize,
+    /// Fetch market metadata for at most this many of a wallet's largest positions.
+    pub max_markets_per_wallet: usize,
     /// Leaderboard depth per (period, sort) pull.
     pub leaderboard_depth: u32,
     /// Longshot-winner source: max recently-closed markets inspected per run.
     pub max_resolved_markets: usize,
+    /// Longshot-winner source: only markets with at least this lifetime volume.
+    pub longshot_min_volume: f64,
+    /// Longshot-winner source: skip sports markets (upsets are public-information events).
+    pub longshot_skip_sports: bool,
     /// Longshot-winner source: winning token must have traded ≤ this in the window before close.
     pub longshot_price: f64,
     pub longshot_window_s: i64,
@@ -145,8 +166,15 @@ impl Default for DiscoveryConfig {
             reeval_ttl_s: 14 * 86_400,
             max_enrich: 2000,
             min_trade_count: 1,
+            gate_max_markets: 2000,
+            gate_max_trade_count: 20_000,
+            gate_min_realized_pnl: 250.0,
+            max_position_pages: 2,
+            max_markets_per_wallet: 40,
             leaderboard_depth: 500,
             max_resolved_markets: 50,
+            longshot_min_volume: 10_000.0,
+            longshot_skip_sports: true,
             longshot_price: 0.30,
             longshot_window_s: 7 * 86_400,
             min_market_duration_h: 24.0,
@@ -159,7 +187,11 @@ impl Default for DiscoveryConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SignalConfig {
-    // Weights (sum of weight × strength, capped at 100).
+    // Weights. Primary evidence (NewAccountLongshot, OldAccountWinRate, LongshotWinner,
+    // PreMove, LinkedAccounts) builds the base; supporting context (LeaderboardEntrant,
+    // Concentration, ResolutionTiming, NicheMarket) only amplifies it:
+    // raw = base + support · min(1, base / support_gate). Calibrated so one strong
+    // primary signal reaches the watchlist (≥ 45) and primary + context makes an issue.
     pub w_new_account_longshot: f64,
     pub w_old_account_win_rate: f64,
     pub w_leaderboard_entrant: f64,
@@ -172,6 +204,20 @@ pub struct SignalConfig {
 
     pub tier_high: u8,
     pub tier_medium: u8,
+    /// Supporting signals count fully only once primary evidence reaches this base.
+    pub support_gate: f64,
+    /// Wallets with ≥ `min_resolved` resolved positions and z at or below this are
+    /// losing traders: the score is multiplied by `losing_record_factor`.
+    pub losing_z: f64,
+    pub losing_record_factor: f64,
+
+    /// Size multiplier: `clamp(1 + slope·log10(basis / pivot), min, max)`, so with the
+    /// defaults $100 → 0.8, $1k → 1.0, $10k+ → 1.2. Size is a materiality filter, not
+    /// an insider signal, so its effect is deliberately mild.
+    pub materiality_pivot_usd: f64,
+    pub materiality_slope: f64,
+    pub materiality_min: f64,
+    pub materiality_max: f64,
 
     /// Positions below this value are dust and ignored; also the global value floor.
     pub min_value_usd: f64,
@@ -192,6 +238,9 @@ pub struct SignalConfig {
     pub min_longshot_wins: u32,
     pub longshot_win_price: f64,
     pub z_floor: f64,
+    /// Minimum excess win rate `(wins − expected) / n`: a small edge over thousands of
+    /// bets gives a big z but is skill or volume, not information.
+    pub min_edge: f64,
     pub z_span: f64,
     pub outcome_selected_z_penalty: f64,
     /// Multiplier for sports/crypto wins (public-information markets).
@@ -227,6 +276,9 @@ pub struct SignalConfig {
 
     // NicheMarket
     pub niche_max_volume: f64,
+    /// Gamma volume is CLOB-only and unreliable for tiny markets; ignore below this.
+    pub niche_min_volume: f64,
+    pub niche_max_entry: f64,
     pub niche_min_share: f64,
 
     // LinkedAccounts
@@ -236,17 +288,24 @@ pub struct SignalConfig {
 impl Default for SignalConfig {
     fn default() -> Self {
         SignalConfig {
-            w_new_account_longshot: 25.0,
-            w_old_account_win_rate: 30.0,
-            w_leaderboard_entrant: 15.0,
-            w_longshot_winner: 25.0,
-            w_concentration: 10.0,
-            w_resolution_timing: 15.0,
-            w_pre_move: 15.0,
-            w_niche_market: 10.0,
+            w_new_account_longshot: 40.0,
+            w_old_account_win_rate: 55.0,
+            w_leaderboard_entrant: 20.0,
+            w_longshot_winner: 45.0,
+            w_concentration: 15.0,
+            w_resolution_timing: 20.0,
+            w_pre_move: 30.0,
+            w_niche_market: 15.0,
             w_linked_accounts: 20.0,
             tier_high: 70,
             tier_medium: 45,
+            support_gate: 30.0,
+            losing_z: -2.0,
+            losing_record_factor: 0.5,
+            materiality_pivot_usd: 1000.0,
+            materiality_slope: 0.2,
+            materiality_min: 0.8,
+            materiality_max: 1.2,
             min_value_usd: 200.0,
             dust_pnl_pct: -99.0,
             min_market_duration_h: 24.0,
@@ -259,6 +318,7 @@ impl Default for SignalConfig {
             longshot_win_price: 0.35,
             z_floor: 2.0,
             z_span: 2.5,
+            min_edge: 0.15,
             outcome_selected_z_penalty: 0.75,
             public_info_discount: 0.5,
             closed_weight: 0.5,
@@ -271,14 +331,16 @@ impl Default for SignalConfig {
             concentration_share: 0.6,
             concentration_max_markets: 3,
             timing_window_h: 48.0,
-            timing_max_price: 0.5,
-            timing_min_wins: 2,
+            timing_max_price: 0.35,
+            timing_min_wins: 3,
             premove_window_h: 24.0,
             premove_delta: 0.25,
             premove_min_provisional: 40,
             premove_max_positions: 5,
             niche_max_volume: 50_000.0,
             niche_min_share: 0.03,
+            niche_min_volume: 1000.0,
+            niche_max_entry: 0.5,
             linked_bonus_per_member: 10.0,
         }
     }
@@ -405,7 +467,11 @@ pub struct SiteConfig {
 
 impl Default for SiteConfig {
     fn default() -> Self {
-        SiteConfig { max_candidates: 1500, max_markets: 300, min_score: 30 }
+        SiteConfig {
+            max_candidates: 1500,
+            max_markets: 300,
+            min_score: 30,
+        }
     }
 }
 

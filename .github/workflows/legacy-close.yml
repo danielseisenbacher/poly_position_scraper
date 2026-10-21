@@ -1,0 +1,59 @@
+# One-shot: close every open issue created by the old Python pipeline and tag it `legacy`.
+name: legacy-close
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_label:
+        description: "Label of the issues to close"
+        type: string
+        default: insider-alert
+      dry_run:
+        description: "Only count the issues that would be closed"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-close
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  close:
+    # Fallback if ubuntu-slim is unavailable: ubuntu-latest.
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      RUST_LOG: info
+      OLD_LABEL: ${{ inputs.old_label }}
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            polywatch.toml
+            scripts/ci/
+
+      - name: Download binary
+        run: scripts/ci/fetch-binary.sh
+
+      - name: Close legacy issues
+        run: |
+          set -euo pipefail
+          args=(legacy-close --old-label "$OLD_LABEL")
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          bin/polywatch "${args[@]}" | tee legacy-close.log
+          echo "### legacy-close$([[ "$DRY_RUN" == "true" ]] && echo ' (dry run)'): $(tail -n1 legacy-close.log)" >> "$GITHUB_STEP_SUMMARY"

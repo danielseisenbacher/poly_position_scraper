@@ -1,0 +1,30 @@
+---
+source: crates/signals/src/tests.rs
+expression: e
+---
+{
+  "signals": [
+    {
+      "kind": "NewAccountLongshot",
+      "strength": 0.75,
+      "evidence": "account 10 d old, 2 markets traded, cost-weighted entry 0.15, value $600",
+      "refs": [
+        "a",
+        "b"
+      ]
+    }
+  ],
+  "score": {
+    "total": 29,
+    "tier": "low",
+    "materiality": 0.956
+  },
+  "resolved": {
+    "n": 0.0,
+    "wins": 0.0,
+    "expected_wins": 0.0,
+    "z": 0.0,
+    "longshot_wins": 0
+  },
+  "value": 600.0
+}

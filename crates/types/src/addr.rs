@@ -95,16 +95,19 @@ mod tests {
 
     #[test]
     fn decodes_topic() {
-        let a = Addr::from_topic(
-            "0x000000000000000000000000c3964d24c189ef737578715b47aa67b0546c3cfe",
-        )
-        .unwrap();
+        let a =
+            Addr::from_topic("0x000000000000000000000000c3964d24c189ef737578715b47aa67b0546c3cfe")
+                .unwrap();
         assert_eq!(a.as_str(), "0xc3964d24c189ef737578715b47aa67b0546c3cfe");
     }
 
     #[test]
     fn serde_roundtrip_lowercases() {
-        let a: Addr = serde_json::from_str("\"0xC3964D24c189ef737578715b47aa67b0546c3cfe\"").unwrap();
-        assert_eq!(serde_json::to_string(&a).unwrap(), "\"0xc3964d24c189ef737578715b47aa67b0546c3cfe\"");
+        let a: Addr =
+            serde_json::from_str("\"0xC3964D24c189ef737578715b47aa67b0546c3cfe\"").unwrap();
+        assert_eq!(
+            serde_json::to_string(&a).unwrap(),
+            "\"0xc3964d24c189ef737578715b47aa67b0546c3cfe\""
+        );
     }
 }

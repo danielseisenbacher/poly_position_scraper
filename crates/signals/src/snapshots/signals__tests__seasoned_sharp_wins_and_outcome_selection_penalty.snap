@@ -1,0 +1,40 @@
+---
+source: crates/signals/src/tests.rs
+expression: e
+---
+{
+  "signals": [
+    {
+      "kind": "OldAccountWinRate",
+      "strength": 1.0,
+      "evidence": "won 12/15 resolved, mean entry 0.25, edge +55 pts, z=4.9",
+      "refs": [
+        "r00",
+        "r01",
+        "r02",
+        "r03",
+        "r04",
+        "r05",
+        "r06",
+        "r07",
+        "r08",
+        "r09",
+        "r10",
+        "r11"
+      ]
+    }
+  ],
+  "score": {
+    "total": 66,
+    "tier": "medium",
+    "materiality": 1.2
+  },
+  "resolved": {
+    "n": 15.0,
+    "wins": 12.0,
+    "expected_wins": 3.75,
+    "z": 4.919,
+    "longshot_wins": 12
+  },
+  "value": 19200.0
+}

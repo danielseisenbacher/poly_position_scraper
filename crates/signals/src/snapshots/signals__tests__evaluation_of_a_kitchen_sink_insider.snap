@@ -1,0 +1,55 @@
+---
+source: crates/signals/src/tests.rs
+expression: e
+---
+{
+  "signals": [
+    {
+      "kind": "NewAccountLongshot",
+      "strength": 0.74,
+      "evidence": "account 20 d old, 3 markets traded, cost-weighted entry 0.16, value $25.9k",
+      "refs": [
+        "x1",
+        "x2",
+        "x3"
+      ]
+    },
+    {
+      "kind": "LongshotWinner",
+      "strength": 0.863,
+      "evidence": "held 1 longshot winner, best entry 0.12 (low 0.09 before close)",
+      "refs": [
+        "x2"
+      ]
+    },
+    {
+      "kind": "Concentration",
+      "strength": 1.0,
+      "evidence": "100% of $900 open value in one position, 1 market",
+      "refs": [
+        "x3"
+      ]
+    },
+    {
+      "kind": "NicheMarket",
+      "strength": 0.875,
+      "evidence": "$3,000 = 8% of a $40.0k-volume market",
+      "refs": [
+        "x1"
+      ]
+    }
+  ],
+  "score": {
+    "total": 100,
+    "tier": "high",
+    "materiality": 1.2
+  },
+  "resolved": {
+    "n": 2.0,
+    "wins": 2.0,
+    "expected_wins": 0.27,
+    "z": 3.583,
+    "longshot_wins": 2
+  },
+  "value": 25900.0
+}

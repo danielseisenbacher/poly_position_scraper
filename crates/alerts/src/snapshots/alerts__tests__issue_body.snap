@@ -1,0 +1,35 @@
+---
+source: crates/alerts/src/tests.rs
+expression: body
+---
+**[0xf323…b0d7](https://polymarket.com/profile/0xf3238cc8d3ef945c39b36712040886e3847eb0d7)** · [dashboard](https://danielseisenbacher.github.io/poly_position_scraper/#w/0xf3238cc8d3ef945c39b36712040886e3847eb0d7) · [polygonscan](https://polygonscan.com/address/0xf3238cc8d3ef945c39b36712040886e3847eb0d7)
+
+**score 78** (high) · `@quiet|whale` / `Glossy-Antelope` · age 412 d · value $16,060 · realized PnL +$18,734 · win rate 7/9.5 (z=3.4)
+
+| signal | strength | evidence |
+|---|---|---|
+| OldAccountWinRate | 0.92 | won 7/9.5 resolved at mean entry 0.21 (z=3.4) |
+| ResolutionTiming | 0.71 | 3 wins entered &lt; 48 h before resolution at ≤ 0.35 |
+| Concentration | 0.45 | 68% of value in one market |
+| NicheMarket | 0.20 | 4% of a $120k market |
+
+**Top 10 of 13 positions by cost**
+
+| market | outcome | status | avg price | size | current price | pnl |
+|---|---|---|---|---|---|---|
+| [Will the Fed cut rates in December?](https://polymarket.com/market/fed-cut-december) | Yes | open | 0.18 | 25,000 | 0.64 | +$11,500 |
+| [Will X \| Y merge by 2027?](https://polymarket.com/market/x-y-merge-2027) | No | won | 0.22 | 9,000 | 1.00 | +$7,020 |
+| [Will candidate A win the primary?](https://polymarket.com/market/candidate-a-primary) | Yes | won | 0.11 | 12,500 | 1.00 | +$11,125 |
+| [Will the ceasefire hold through March?](https://polymarket.com/market/ceasefire-march) | No | lost | 0.35 | 2,000 | 0.00 | -$700 |
+| [Will BTC hit $150k in 2026?](https://polymarket.com/market/btc-150k-2026) | Yes | open | 0.040 | 3,000 | 0.020 | -$60 |
+| [Minor market #7](https://polymarket.com/market/minor-7) | Yes | closed | 0.50 | 107 | 0.50 | $0 |
+| [Minor market #6](https://polymarket.com/market/minor-6) | Yes | closed | 0.50 | 106 | 0.50 | $0 |
+| [Minor market #5](https://polymarket.com/market/minor-5) | Yes | closed | 0.50 | 105 | 0.50 | $0 |
+| [Minor market #4](https://polymarket.com/market/minor-4) | Yes | closed | 0.50 | 104 | 0.50 | $0 |
+| [Minor market #3](https://polymarket.com/market/minor-3) | Yes | closed | 0.50 | 103 | 0.50 | $0 |
+
+**Cluster** `c-0a1b2c3d4e`: linked accounts, see the [dashboard](https://danielseisenbacher.github.io/poly_position_scraper/#w/0xf3238cc8d3ef945c39b36712040886e3847eb0d7).
+
+_Heuristic lead, not proof of insider trading._
+
+<!-- polywatch:addr=0xf3238cc8d3ef945c39b36712040886e3847eb0d7 -->
