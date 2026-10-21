@@ -1094,6 +1094,15 @@ async fn second_run_respects_ttl_and_cursor() {
         .entries
         .iter()
         .all(|e| e.added_at == NOW && e.last_qualified == later));
+    // The longshot evidence is persisted, so the holder keeps its strongest signal.
+    let hits: std::collections::BTreeMap<types::Addr, Vec<signals::LongshotHit>> =
+        data.read("longshot_hits.json").unwrap().unwrap();
+    assert!(hits.contains_key(&holder()));
+    let h = data.load_wallet(&holder()).unwrap().unwrap();
+    assert!(h
+        .signals
+        .iter()
+        .any(|s| s.kind == types::SignalKind::LongshotWinner));
 }
 
 #[tokio::test]

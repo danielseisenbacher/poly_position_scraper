@@ -362,10 +362,22 @@ pub async fn run(
     feed_rows.retain(|t| cands.contains_key(&t.proxy_wallet));
     drop(feed.agg.wallets);
 
+    let mut stored_hits: BTreeMap<Addr, Vec<signals::LongshotHit>> =
+        match data.read(persist::LONGSHOT_HITS) {
+            Ok(h) => h.unwrap_or_default(),
+            Err(e) => {
+                warn!("longshot hits unreadable, starting empty: {e}");
+                BTreeMap::new()
+            }
+        };
+    persist::merge_longshot_hits(&mut stored_hits, &longshots.hits, now);
     let side = SideInputs {
         leaderboard: boards.hits,
         biggest_wins: boards.wins,
-        longshot_hits: longshots.hits,
+        longshot_hits: stored_hits
+            .iter()
+            .map(|(a, h)| (a.clone(), h.clone()))
+            .collect(),
     };
 
     // ---- 2. Funnel ----
@@ -537,6 +549,7 @@ pub async fn run(
         }
         data.save_markets_cache(&cache)?;
         data.save_clusters(&clusters)?;
+        data.write(persist::LONGSHOT_HITS, &stored_hits)?;
         data.save_cursors(&cursors)?;
     }
 

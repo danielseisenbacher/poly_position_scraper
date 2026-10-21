@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use types::api::{FeedTrade, Side};
 use types::config::DiscoveryConfig;
@@ -567,4 +567,37 @@ fn bots_are_recognised_by_markets_or_trades() {
     assert!(is_bot(&st(10_058, 50_000), &cfg));
     assert!(is_bot(&st(50, 25_000), &cfg));
     assert!(!is_bot(&st(500, 5_000), &cfg));
+}
+
+#[test]
+fn longshot_hits_persist_merge_and_expire() {
+    use crate::persist::{merge_longshot_hits, LONGSHOT_HIT_RETENTION_S};
+    let now = 100 * 86_400;
+    let hit = |cid: &str, entry: f64, closed_at: i64| signals::LongshotHit {
+        condition_id: cid.into(),
+        title: String::new(),
+        token_id: format!("tok-{cid}"),
+        entry_price: entry,
+        low_price_before_close: 0.05,
+        closed_at,
+        amount: 1000.0,
+    };
+    let mut stored = BTreeMap::new();
+    stored.insert(addr(1), vec![hit("m1", 0.2, now - 86_400)]);
+    stored.insert(
+        addr(2),
+        vec![hit("old", 0.1, now - LONGSHOT_HIT_RETENTION_S - 1)],
+    );
+    let mut fresh = HashMap::new();
+    fresh.insert(
+        addr(1),
+        vec![hit("m1", 0.1, now - 86_400), hit("m2", 0.3, now)],
+    );
+    merge_longshot_hits(&mut stored, &fresh, now);
+    let a1: Vec<(String, f64)> = stored[&addr(1)]
+        .iter()
+        .map(|h| (h.condition_id.clone(), h.entry_price))
+        .collect();
+    assert_eq!(a1, vec![("m1".into(), 0.1), ("m2".into(), 0.3)]);
+    assert!(!stored.contains_key(&addr(2)), "expired hits are dropped");
 }

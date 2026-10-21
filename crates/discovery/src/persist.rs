@@ -1,6 +1,8 @@
 //! Watchlist admission, markets-cache pruning and report rows.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+use signals::LongshotHit;
 
 use types::config::SignalConfig;
 use types::site::CandidateRow;
@@ -92,6 +94,37 @@ pub fn update_watchlist(wl: &mut Watchlist, scored: &[&Wallet], cfg: &Config, no
 }
 
 /// Drop cache entries not referenced by any saved wallet and fetched more than 30 days ago.
+/// `data/longshot_hits.json`: longshot-winner evidence, kept across runs. A hit is only
+/// seen in the run that finds its market resolved; without this, the next re-scoring of a
+/// watched holder would lose its strongest signal.
+pub const LONGSHOT_HITS: &str = "longshot_hits.json";
+/// Longshot hits older than this (by market close) are dropped.
+pub const LONGSHOT_HIT_RETENTION_S: i64 = 30 * 86_400;
+
+/// Merge this run's hits into the stored ones (one hit per wallet and market, the lower
+/// entry wins), then drop hits closed more than [`LONGSHOT_HIT_RETENTION_S`] ago.
+pub fn merge_longshot_hits(
+    stored: &mut BTreeMap<Addr, Vec<LongshotHit>>,
+    fresh: &HashMap<Addr, Vec<LongshotHit>>,
+    now: i64,
+) {
+    for (addr, hits) in fresh {
+        let mine = stored.entry(addr.clone()).or_default();
+        for h in hits {
+            match mine.iter_mut().find(|m| m.condition_id == h.condition_id) {
+                Some(m) if h.entry_price < m.entry_price => *m = h.clone(),
+                Some(_) => {}
+                None => mine.push(h.clone()),
+            }
+        }
+    }
+    for hits in stored.values_mut() {
+        hits.retain(|h| h.closed_at >= now - LONGSHOT_HIT_RETENTION_S);
+        hits.sort_by(|a, b| a.condition_id.cmp(&b.condition_id));
+    }
+    stored.retain(|_, hits| !hits.is_empty());
+}
+
 /// Open and unredeemed positions kept in a wallet file (largest cost first).
 pub const STORED_HELD_POSITIONS: usize = 200;
 /// Closed positions kept in a wallet file (largest |realized PnL| first).
