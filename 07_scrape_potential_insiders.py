@@ -113,7 +113,7 @@ try:
         pass
 
     # 2. Add the new insider candidates to our list
-    for insider, _ in insider_candidates.keys():
+    for insider in insider_candidates:
         newcomers.append(insider)
 
     # 3. Write the updated list back to the text file

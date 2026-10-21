@@ -26,8 +26,9 @@ new_users = list(all_users - already_analysed_set)
 print(f"FOUND {len(new_users)} NEW USERS SINCE LAST RUN")
 
 # Write all_users to users_already_seen.txt to save for the next time
+# Sorted so the committed file only changes where users were added or removed
 with open(f"users_already_seen.txt", "w") as f:
-    for elem in all_users:
+    for elem in sorted(all_users):
         f.write(elem + "\n")
 
 # Save only the new users for this run in the workflow

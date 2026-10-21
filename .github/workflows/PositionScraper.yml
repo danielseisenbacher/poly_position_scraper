@@ -235,16 +235,16 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          
-          # Pull latest changes (from Stage 3 commit) to avoid conflicts
-          git pull origin main --rebase
-          
+
           git add -f newcomers.txt
-          
+
           if git diff --cached --quiet; then
             echo "No new newcomers to record"
           else
             git commit -m "Update newcomers list [skip ci]"
+            # Commit before pulling: pull --rebase refuses to run with uncommitted changes.
+            # Rebase onto the Stage 3 commit to avoid conflicts
+            git pull origin main --rebase
             git push origin main
           fi
 
