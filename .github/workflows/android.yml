@@ -69,7 +69,8 @@ jobs:
           rm -f "$ANDROID_KEYSTORE_PATH"
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk dist/polywatch.apk
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs dist/polywatch.apk | head -3
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs dist/polywatch.apk | head -3
           (cd dist && sha256sum polywatch.apk > polywatch.apk.sha256)
 
       - name: Publish to release apk-latest
