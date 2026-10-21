@@ -6,7 +6,7 @@ name: track
 on:
   schedule:
     # 8-minute spacing, 4-minute gap around the hour, avoids the busy minute 0.
-    - cron: "3,11,19,27,35,43,51,59 * * * *"
+    - cron: "3-59/8 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:

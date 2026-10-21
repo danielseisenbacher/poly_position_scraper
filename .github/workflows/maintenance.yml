@@ -4,7 +4,7 @@ name: maintenance
 
 on:
   schedule:
-    - cron: "41 4 * * 1"
+    - cron: "41 4 * * MON"
   workflow_dispatch:
 
 permissions:

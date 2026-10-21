@@ -5,7 +5,7 @@ name: discover
 
 on:
   schedule:
-    - cron: "23 */4 * * *"
+    - cron: "23 0-23/4 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
