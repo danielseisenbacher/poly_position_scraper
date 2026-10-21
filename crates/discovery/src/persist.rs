@@ -53,6 +53,10 @@ pub fn update_watchlist(wl: &mut Watchlist, scored: &[&Wallet], cfg: &Config, no
             }
         }
     }
+    // Re-scored to 0 (every signal gone, or a bot): stop tracking now rather than after
+    // `evict_low_score_s`; alerts then closes the wallet's issue.
+    wl.entries
+        .retain(|e| by_addr.get(&e.addr).is_none_or(|w| w.score.total > 0));
     let present: HashSet<Addr> = wl.entries.iter().map(|e| e.addr.clone()).collect();
     let mut added: HashSet<Addr> = HashSet::new();
     let mut fresh: Vec<&&Wallet> = scored

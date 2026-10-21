@@ -1003,3 +1003,12 @@ fn hyperactive_young_trader_is_not_a_new_account_longshot() {
     let fresh = eval(&wallet(18, 30, 1, ps));
     assert!(signal(&fresh, SignalKind::NewAccountLongshot).is_some());
 }
+
+#[test]
+fn market_makers_score_zero() {
+    // A perfect record means nothing when it is spread over 10,000 markets.
+    let bot = eval(&wallet(19, 400, 10_058, sharp_record()));
+    assert!(bot.signals.is_empty());
+    assert_eq!(bot.score.total, 0);
+    assert!(bot.resolved.n > 0.0, "the record is still reported");
+}

@@ -531,3 +531,40 @@ fn stored_wallets_keep_held_positions_and_the_largest_closed_ones() {
         "the scored wallet itself is untouched"
     );
 }
+
+#[test]
+fn watchlist_drops_entries_rescored_to_zero() {
+    let entry = |n: u8| WatchlistEntry {
+        addr: addr(n),
+        added_at: 1,
+        reason: SignalKind::OldAccountWinRate,
+        score: 71,
+        last_activity_ts: 7,
+        last_polled: 8,
+        last_qualified: 1,
+        issue: Some(453),
+    };
+    let mut wl = Watchlist {
+        entries: vec![entry(1), entry(2)],
+    };
+    // addr(1) re-scored to 0 (e.g. recognised as a bot); addr(2) not re-scored this run.
+    let bot = scored(1, 0, SignalKind::OldAccountWinRate);
+    persist::update_watchlist(&mut wl, &[&bot], &Config::default(), 5_000);
+    let left: Vec<Addr> = wl.entries.iter().map(|e| e.addr.clone()).collect();
+    assert_eq!(left, vec![addr(2)]);
+}
+
+#[test]
+fn bots_are_recognised_by_markets_or_trades() {
+    use crate::enrich::is_bot;
+    use types::UserStats;
+    let cfg = Config::default();
+    let st = |markets: u64, trades: u64| UserStats {
+        markets_traded: markets,
+        trade_count: trades,
+        ..Default::default()
+    };
+    assert!(is_bot(&st(10_058, 50_000), &cfg));
+    assert!(is_bot(&st(50, 25_000), &cfg));
+    assert!(!is_bot(&st(500, 5_000), &cfg));
+}

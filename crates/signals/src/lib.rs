@@ -78,6 +78,21 @@ pub fn evaluate(input: &ScoreInput<'_>, cfg: &SignalConfig) -> Evaluation {
     let ctx = Ctx::new(input.wallet, Some(input.markets), cfg);
     let stats = ctx.resolved_stats();
     let value = ctx.value();
+    // Market makers and bots trade thousands of markets; none of the signals mean
+    // anything for them (and a big z there is volume, not information).
+    if input
+        .wallet
+        .stats
+        .as_ref()
+        .is_some_and(|s| s.markets_traded > cfg.max_markets_traded)
+    {
+        return Evaluation {
+            signals: Vec::new(),
+            score: combine(&[], value, cfg),
+            resolved: stats.summary,
+            value,
+        };
+    }
 
     let mut signals: Vec<Signal> = [
         ctx.new_account_longshot(input.now, value),

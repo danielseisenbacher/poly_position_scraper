@@ -102,7 +102,13 @@ async fn enrich_one(ctx: &Ctx<'_>, addr: Addr, sources: BTreeSet<Source>) -> Out
             return Outcome::Failed(addr);
         }
     };
-    if !seed && !passes_gate(stats.as_ref(), &sources, ctx.now, ctx.cfg) {
+    let gated = if seed {
+        // Seeds skip the gate, but never get a pass for being a bot.
+        stats.as_ref().is_some_and(|s| is_bot(s, ctx.cfg))
+    } else {
+        !passes_gate(stats.as_ref(), &sources, ctx.now, ctx.cfg)
+    };
+    if gated {
         return Outcome::Gated(addr);
     }
 
@@ -149,8 +155,15 @@ async fn enrich_one(ctx: &Ctx<'_>, addr: Addr, sources: BTreeSet<Source>) -> Out
     Outcome::Enriched(Box::new(Enriched { wallet, had_file }))
 }
 
+/// Market makers and bots: more markets or trades than the gate allows.
+pub fn is_bot(s: &UserStats, cfg: &Config) -> bool {
+    s.markets_traded > cfg.discovery.gate_max_markets
+        || s.trade_count > cfg.discovery.gate_max_trade_count
+}
+
 /// Stage-A gate on user-stats, before the (much more expensive) positions calls.
-/// Seeds bypass it entirely; watchlist members only skip the feed-only rule.
+/// Seeds only face the bot check (see `enrich_one`); watchlist members skip it so they
+/// are re-scored (a bot scores 0 there and leaves the watchlist).
 pub fn passes_gate(
     stats: Option<&UserStats>,
     sources: &BTreeSet<Source>,
@@ -165,8 +178,7 @@ pub fn passes_gate(
         return false;
     }
     let watched = sources.contains(&Source::Watchlist);
-    if !watched && (s.markets_traded > d.gate_max_markets || s.trade_count > d.gate_max_trade_count)
-    {
+    if !watched && is_bot(s, cfg) {
         return false;
     }
     if sources

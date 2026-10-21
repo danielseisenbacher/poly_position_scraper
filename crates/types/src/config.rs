@@ -228,6 +228,9 @@ pub struct SignalConfig {
     pub dust_pnl_pct: f64,
     /// Positions in markets shorter than this (crypto up/down series) are ignored entirely.
     pub min_market_duration_h: f64,
+    /// Wallets that traded more distinct markets than this are market makers or bots:
+    /// they score 0 (matches `discovery.gate_max_markets`).
+    pub max_markets_traded: u64,
 
     // NewAccountLongshot
     pub new_account_days: f64,
@@ -328,6 +331,7 @@ impl Default for SignalConfig {
             min_value_usd: 200.0,
             dust_pnl_pct: -99.0,
             min_market_duration_h: 24.0,
+            max_markets_traded: 2000,
             new_account_days: 60.0,
             longshot_price: 0.30,
             max_markets_new: 6,
