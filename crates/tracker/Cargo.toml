@@ -1,0 +1,23 @@
+[package]
+name = "tracker"
+description = "Watchlist tracker: poll activity for watched wallets, dedup and record trades, emit big-trade events."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+types.workspace = true
+store.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+hex.workspace = true
+serde.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

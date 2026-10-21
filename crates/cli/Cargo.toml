@@ -1,0 +1,26 @@
+[package]
+name = "polywatch"
+description = "polywatch: Polymarket insider-candidate detector (discover | track | alert | compact | legacy-close)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "polywatch"
+path = "src/main.rs"
+
+[dependencies]
+types.workspace = true
+api.workspace = true
+store.workspace = true
+discovery.workspace = true
+tracker.workspace = true
+alerts.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

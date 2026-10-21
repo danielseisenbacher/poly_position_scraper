@@ -1,0 +1,8 @@
+# polywatch configuration. Every key is optional; defaults live in
+# crates/types/src/config.rs. Override only what you want to change, e.g.:
+#
+# [signals]
+# tier_high = 75
+#
+# [tracker]
+# watchlist_max = 1000

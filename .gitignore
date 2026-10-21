@@ -1,2 +1,8 @@
+/target/
 /.venv/
 .idea
+# Local run outputs (the real ones live on the `data` branch and in releases)
+/data/
+/state/
+/bin/
+*.report.json
